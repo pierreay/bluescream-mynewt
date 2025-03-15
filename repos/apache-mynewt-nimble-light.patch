@@ -1,0 +1,1838 @@
+diff --git a/apps/bttester/src/l2cap.c b/apps/bttester/src/l2cap.c
+index 7890e7cc..9bec596c 100644
+--- a/apps/bttester/src/l2cap.c
++++ b/apps/bttester/src/l2cap.c
+@@ -514,7 +514,7 @@ static void send_data(const uint8_t *data, uint16_t len)
+ 		goto fail;
+ 	}
+ 
+-	/* FIXME: For now, fail if data length exceeds buffer length */
++	/* FIXME : For now, fail if data length exceeds buffer length */
+ 	if (data_len > TESTER_COC_MTU) {
+ 		SYS_LOG_ERR("Data length exceeds buffer length");
+ 		goto fail;
+@@ -600,7 +600,7 @@ static void listen(const uint8_t *data, uint16_t len)
+ 	rsp = l2cap_btp_listen_err2coc_err(rsp);
+ 	rsp = l2cap_coc_err2hs_err(rsp);
+ 
+-	/* TODO: Handle cmd->transport flag */
++	/* TODO : Handle cmd->transport flag */
+ 	rc = ble_l2cap_create_server(cmd->psm, mtu, tester_l2cap_event,
+ 				     INT_TO_POINTER(rsp));
+ 	if (rc) {
+diff --git a/babblesim/hw/mcu/nordic/nrf52_bsim/syscfg.yml b/babblesim/hw/mcu/nordic/nrf52_bsim/syscfg.yml
+index d6b66959..031301ab 100644
+--- a/babblesim/hw/mcu/nordic/nrf52_bsim/syscfg.yml
++++ b/babblesim/hw/mcu/nordic/nrf52_bsim/syscfg.yml
+@@ -313,7 +313,7 @@ syscfg.defs:
+         description: 'CTS pin for UART1'
+         value: -1
+ 
+-    TEMP:
++    TEMP :
+         description: 'Enable nRF52xxx internal temperature mesurement'
+         value:  0
+ 
+diff --git a/nimble/controller/include/controller/ble_ll_conn.h b/nimble/controller/include/controller/ble_ll_conn.h
+index 437d7c25..0fcab022 100644
+--- a/nimble/controller/include/controller/ble_ll_conn.h
++++ b/nimble/controller/include/controller/ble_ll_conn.h
+@@ -201,6 +201,8 @@ struct ble_ll_conn_subrate_req_params {
+ };
+ 
+ /* Connection state machine */
++/* SC: ble_ll_conn_sm definition, the state machine of the current connection
++ * seen by the controller. */
+ struct ble_ll_conn_sm
+ {
+     /* Connection state machine flags */
+diff --git a/nimble/controller/pkg.yml b/nimble/controller/pkg.yml
+index 702f3d89..e515e1cb 100644
+--- a/nimble/controller/pkg.yml
++++ b/nimble/controller/pkg.yml
+@@ -29,6 +29,7 @@ pkg.req_apis:
+     - ble_driver
+     - ble_transport
+     - stats
++    - console
+ pkg.req_apis.BLE_LL_PA:
+     - ble_ll_pa
+ pkg.req_apis.BLE_LL_LNA:
+@@ -36,5 +37,10 @@ pkg.req_apis.BLE_LL_LNA:
+ 
+ pkg.deps:
+     - "@apache-mynewt-core/kernel/os"
++    - "@apache-mynewt-core/sys/console/full"
+     - nimble
+     - nimble/transport
++    - nimble/screamingchannels
++
++pkg.cflags:
++    - -DBLE_LL_ENCRYPT_DEBUG
+diff --git a/nimble/controller/src/ble_ll.c b/nimble/controller/src/ble_ll.c
+index b6681abf..a3e9ec12 100644
+--- a/nimble/controller/src/ble_ll.c
++++ b/nimble/controller/src/ble_ll.c
+@@ -366,7 +366,8 @@ static void ble_ll_event_dbuf_overflow(struct ble_npl_event *ev);
+ #if MYNEWT_VAL(BLE_LL_CFG_FEAT_LL_EXT_ADV)
+ #define BLE_LL_STACK_SIZE   (120)
+ #else
+-#define BLE_LL_STACK_SIZE   (90)
++// Double stack size (90 => 180) in order to enable "BLE_LL_ENCRYPT_DEBUG".
++#define BLE_LL_STACK_SIZE   (180)
+ #endif
+ #endif
+ 
+diff --git a/nimble/controller/src/ble_ll_conn.c b/nimble/controller/src/ble_ll_conn.c
+index dc43fecc..5d348a9e 100644
+--- a/nimble/controller/src/ble_ll_conn.c
++++ b/nimble/controller/src/ble_ll_conn.c
+@@ -1176,7 +1176,7 @@ ble_ll_conn_tx_pdu(struct ble_ll_conn_sm *connsm)
+         /* Get next event time */
+         next_event_time = ble_ll_conn_get_next_sched_time(connsm);
+ 
+-        /* XXX: TODO: need to check this with phy update procedure. There are
++        /* XXX: TODO : need to check this with phy update procedure. There are
+            limitations if we have started update */
+ 
+         /*
+@@ -1611,7 +1611,7 @@ ble_ll_conn_can_send_next_pdu(struct ble_ll_conn_sm *connsm, uint32_t begtime,
+             pkthdr = OS_MBUF_PKTHDR(txpdu);
+         }
+ 
+-        /* XXX: TODO: need to check this with phy update procedure. There are
++        /* XXX: TODO : need to check this with phy update procedure. There are
+            limitations if we have started update */
+         if (txpdu) {
+             txhdr = BLE_MBUF_HDR_PTR(txpdu);
+@@ -2280,7 +2280,7 @@ ble_ll_conn_next_event(struct ble_ll_conn_sm *connsm)
+      */
+ 
+     /*
+-     * XXX TODO: I think this is technically incorrect. We can allow peripheral
++     * XXX TODO : I think this is technically incorrect. We can allow peripheral
+      * latency if we are doing one of these updates as long as we
+      * know that the central has received the ACK to the PDU that set
+      * the instant
+diff --git a/nimble/controller/src/ble_ll_conn_hci.c b/nimble/controller/src/ble_ll_conn_hci.c
+index 2ffda58a..5627a6f2 100644
+--- a/nimble/controller/src/ble_ll_conn_hci.c
++++ b/nimble/controller/src/ble_ll_conn_hci.c
+@@ -32,6 +32,7 @@
+ #include "controller/ble_ll_ctrl.h"
+ #include "controller/ble_ll_scan.h"
+ #include "controller/ble_ll_adv.h"
++#include "console/console.h"
+ #include "ble_ll_conn_priv.h"
+ 
+ #if MYNEWT_VAL(BLE_LL_ROLE_CENTRAL) || MYNEWT_VAL(BLE_LL_ROLE_PERIPHERAL)
+@@ -1559,6 +1560,9 @@ int
+ ble_ll_conn_hci_le_ltk_reply(const uint8_t *cmdbuf, uint8_t len,
+                              uint8_t *rspbuf, uint8_t *rsplen)
+ {
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[nimble/controller/src/ble_ll_conn_hci.c] ble_ll_conn_hci_le_ltk_reply()\n");
++#endif
+     const struct ble_hci_le_lt_key_req_reply_cp *cmd = (const void *) cmdbuf;
+     struct ble_hci_le_lt_key_req_reply_rp *rsp = (void *) rspbuf;
+     struct ble_ll_conn_sm *connsm;
+@@ -1618,6 +1622,9 @@ int
+ ble_ll_conn_hci_le_ltk_neg_reply(const uint8_t *cmdbuf, uint8_t len,
+                                  uint8_t *rspbuf, uint8_t *rsplen)
+ {
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[nimble/controller/src/ble_ll_conn_hci.c] ble_ll_conn_hci_le_ltk_neg_reply()\n");
++#endif
+     const struct ble_hci_le_lt_key_req_neg_reply_cp *cmd = (const void *) cmdbuf;
+     struct ble_hci_le_lt_key_req_neg_reply_rp *rsp = (void *) rspbuf;
+     struct ble_ll_conn_sm *connsm;
+@@ -1632,6 +1639,9 @@ ble_ll_conn_hci_le_ltk_neg_reply(const uint8_t *cmdbuf, uint8_t len,
+     handle = le16toh(cmd->conn_handle);
+     connsm = ble_ll_conn_find_by_handle(handle);
+     if (!connsm) {
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[nimble/controller/src/ble_ll_conn_hci.c] rc = BLE_ERR_UNK_CONN_ID;\n");
++#endif
+         rc = BLE_ERR_UNK_CONN_ID;
+         goto ltk_key_cmd_complete;
+     }
+@@ -1646,11 +1656,18 @@ ble_ll_conn_hci_le_ltk_neg_reply(const uint8_t *cmdbuf, uint8_t len,
+ 
+     /* The connection should be awaiting a reply. If not, just discard */
+     if (connsm->enc_data.enc_state != CONN_ENC_S_LTK_REQ_WAIT) {
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[nimble/controller/src/ble_ll_conn_hci.c] /* The connection should be awaiting a reply. If not, just discard */\n");
++    console_printf("[nimble/controller/src/ble_ll_conn_hci.c] rc = BLE_ERR_CMD_DISALLOWED;\n");
++#endif
+         rc = BLE_ERR_CMD_DISALLOWED;
+         goto ltk_key_cmd_complete;
+     }
+ 
+     /* We received a negative reply! Send REJECT_IND */
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[nimble/controller/src/ble_ll_conn_hci.c] /* We received a negative reply! Send REJECT_IND */\n");
++#endif
+     ble_ll_ctrl_reject_ind_send(connsm, BLE_LL_CTRL_ENC_REQ,
+                                 BLE_ERR_PINKEY_MISSING);
+     connsm->enc_data.enc_state = CONN_ENC_S_LTK_NEG_REPLY;
+diff --git a/nimble/controller/src/ble_ll_ctrl.c b/nimble/controller/src/ble_ll_ctrl.c
+index 7ece7b1c..9e53499f 100644
+--- a/nimble/controller/src/ble_ll_ctrl.c
++++ b/nimble/controller/src/ble_ll_ctrl.c
+@@ -32,6 +32,9 @@
+ #include "controller/ble_ll_sync.h"
+ #include "controller/ble_ll_tmr.h"
+ #include "ble_ll_conn_priv.h"
++#include "screamingchannels/dump.h"
++#include "screamingchannels/misc.h"
++#include "console/console.h"
+ 
+ #if MYNEWT_VAL(BLE_LL_ROLE_PERIPHERAL) || MYNEWT_VAL(BLE_LL_ROLE_CENTRAL)
+ 
+@@ -43,9 +46,8 @@
+  * this the stack requirements for the LL task go up considerably. The
+  * default stack will not be enough and must be increased.
+  */
++#if MYNEWT_VAL(BLE_LL_ENCRYPT_DEBUG_DISABLE)
+ #undef BLE_LL_ENCRYPT_DEBUG
+-#ifdef BLE_LL_ENCRYPT_DEBUG
+-#include "console/console.h"
+ #endif
+ 
+ /*
+@@ -918,7 +920,7 @@ ble_ll_ctrl_rx_phy_req(struct ble_ll_conn_sm *connsm, uint8_t *req,
+             CONN_F_PHY_UPDATE_EVENT(connsm) = 0;
+         }
+ 
+-        /* XXX: TODO: if we started another procedure with an instant
++        /* XXX: TODO : if we started another procedure with an instant
+          * why are we doing this? Need to look into this.*/
+ 
+         /* Respond to central's phy update procedure */
+@@ -1314,39 +1316,19 @@ ble_ll_ctrl_datalen_upd_make(struct ble_ll_conn_sm *connsm, uint8_t *dptr)
+ void
+ ble_ll_calc_session_key(struct ble_ll_conn_sm *connsm)
+ {
+-#ifdef BLE_LL_ENCRYPT_DEBUG
+-    int cnt;
++#if MYNEWT_VAL(SC_LOG_TRACE_ENABLE)
++    console_printf("[ble_ll_ctrl.c] ble_ll_calc_session_key(connsm=%p)\n", connsm);
+ #endif
+-
++    dump_ble_ll_conn_sm(connsm);
++    set_is_sc_attack(connsm->chanmap);
++    set_is_sc_train(connsm->chanmap);
+     /* XXX: possibly have some way out of this if this locks up */
+     while (1) {
+         if (!ble_hw_encrypt_block(&connsm->enc_data.enc_block)) {
+             break;
+         }
+     }
+-
+-#ifdef BLE_LL_ENCRYPT_DEBUG
+-    console_printf("Calculating Session Key for handle=%u",
+-                   connsm->conn_handle);
+-
+-    console_printf("\nLTK:");
+-    for (cnt = 0; cnt < 16; ++cnt) {
+-        console_printf("%02x", connsm->enc_data.enc_block.key[cnt]);
+-    }
+-    console_printf("\nSKD:");
+-    for (cnt = 0; cnt < 16; ++cnt) {
+-        console_printf("%02x", connsm->enc_data.enc_block.plain_text[cnt]);
+-    }
+-    console_printf("\nSession Key:");
+-    for (cnt = 0; cnt < 16; ++cnt) {
+-        console_printf("%02x", connsm->enc_data.enc_block.cipher_text[cnt]);
+-    }
+-    console_printf("\nIV:");
+-    for (cnt = 0; cnt < 8; ++ cnt) {
+-        console_printf("%02x", connsm->enc_data.iv[cnt]);
+-    }
+-    console_printf("\n");
+-#endif
++    dump_ble_ll_conn_enc_data(&connsm->enc_data);
+ }
+ 
+ /**
+@@ -1473,6 +1455,9 @@ ble_ll_ctrl_is_start_enc_rsp(struct os_mbuf *txpdu)
+ int
+ ble_ll_ctrl_start_enc_send(struct ble_ll_conn_sm *connsm)
+ {
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[nimble/controller/src/ble_ll_ctrl.c] ble_ll_ctrl_start_enc_send()\n");
++#endif
+     int rc;
+     struct os_mbuf *om;
+ 
+@@ -1573,6 +1558,9 @@ ble_ll_ctrl_rx_enc_rsp(struct ble_ll_conn_sm *connsm, uint8_t *dptr)
+ 
+         swap_buf(connsm->enc_data.enc_block.plain_text, dptr, 8);
+         memcpy(connsm->enc_data.iv + 4, dptr + 8, 4);
++#if MYNEWT_VAL(CONSOLE_LOG)
++        console_printf("[nimble/controller/src/ble_ll_ctrl.c] ble_ll_ctrl_rx_enc_rsp()\n");
++#endif
+         ble_ll_calc_session_key(connsm);
+         connsm->enc_data.enc_state = CONN_ENC_S_START_ENC_REQ_WAIT;
+     }
+@@ -1603,6 +1591,9 @@ static uint8_t
+ ble_ll_ctrl_rx_enc_req(struct ble_ll_conn_sm *connsm, uint8_t *dptr,
+                        uint8_t *rspdata)
+ {
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[nimble/controller/src/ble_ll_ctrl.c] ble_ll_ctrl_rx_enc_req()\n");
++#endif
+ #if MYNEWT_VAL(BLE_LL_ROLE_CENTRAL)
+     if (connsm->conn_role == BLE_LL_CONN_ROLE_CENTRAL) {
+         return BLE_LL_CTRL_UNKNOWN_RSP;
+@@ -1631,12 +1622,41 @@ ble_ll_ctrl_rx_enc_req(struct ble_ll_conn_sm *connsm, uint8_t *dptr,
+     return BLE_LL_CTRL_ENC_RSP;
+ #endif
+ 
++    // Extract the SKD_C (skdc) from the LL_ENC_REQ and put it inside the
++    // second part of the plaintext (which is the final SKD).
+     swap_buf(connsm->enc_data.enc_block.plain_text + 8, dptr + 10, 8);
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("\nSKD_C:");
++    for (int cnt = 8; cnt < 16; ++cnt) {
++        console_printf("%02x", connsm->enc_data.enc_block.plain_text[cnt]);
++    }
++    console_printf("\n");
++#endif
+     memcpy(connsm->enc_data.iv, dptr + 18, 4);
+ 
+     /* Create the ENC_RSP. Concatenate our SKD and IV */
++    // Generate the SKD_S (skds) on the fly from random data and put it inside
++    // the first part of the plaintext (which is the final SKD).
+     ble_ll_rand_data_get(connsm->enc_data.enc_block.plain_text, 8);
++#if MYNEWT_VAL(BLE_LL_INSTR_SKDS_FIXED_ENABLE)
++    // Temporary fix SKD_S value.
++    connsm->enc_data.enc_block.plain_text[0] = 0xde;
++    connsm->enc_data.enc_block.plain_text[1] = 0xad;
++    connsm->enc_data.enc_block.plain_text[2] = 0xbe;
++    connsm->enc_data.enc_block.plain_text[3] = 0xef;
++    connsm->enc_data.enc_block.plain_text[4] = 0xde;
++    connsm->enc_data.enc_block.plain_text[5] = 0xad;
++    connsm->enc_data.enc_block.plain_text[6] = 0xbe;
++    connsm->enc_data.enc_block.plain_text[7] = 0xef;
++#endif
+     swap_buf(rspdata, connsm->enc_data.enc_block.plain_text, 8);
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("SKD_S:");
++    for (int cnt = 0; cnt < 8; ++cnt) {
++        console_printf("%02x", connsm->enc_data.enc_block.plain_text[cnt]);
++    }
++    console_printf("\n");
++#endif
+     ble_ll_rand_data_get(connsm->enc_data.iv + 4, 4);
+     memcpy(rspdata + 8, connsm->enc_data.iv + 4, 4);
+ 
+@@ -1747,6 +1767,9 @@ ble_ll_ctrl_rx_pause_enc_rsp(struct ble_ll_conn_sm *connsm)
+ static uint8_t
+ ble_ll_ctrl_rx_start_enc_rsp(struct ble_ll_conn_sm *connsm)
+ {
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[nimble/controller/src/ble_ll_ctrl.c] ble_ll_ctrl_rx_start_enc_rsp()\n");
++#endif
+     int rc;
+ 
+     /* Not in proper state. Discard */
+@@ -3048,6 +3071,11 @@ int
+ ble_ll_ctrl_reject_ind_send(struct ble_ll_conn_sm *connsm, uint8_t rej_opcode,
+                             uint8_t err)
+ {
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[nimble/controller/src/ble_ll_ctrl.c] ble_ll_ctrl_reject_ind_send() rej_opcode=%d err=%d\n", rej_opcode, err);
++    if (err == BLE_ERR_PINKEY_MISSING)
++        console_printf("[nimble/controller/src/ble_ll_ctrl.c] err=BLE_ERR_PINKEY_MISSING\n");
++#endif
+     int rc;
+     uint8_t len;
+     uint8_t opcode;
+@@ -3061,6 +3089,9 @@ ble_ll_ctrl_reject_ind_send(struct ble_ll_conn_sm *connsm, uint8_t rej_opcode,
+         opcode = BLE_LL_CTRL_REJECT_IND_EXT;
+         if (rej_opcode == BLE_LL_CTRL_ENC_REQ) {
+             if ((connsm->conn_features & BLE_LL_FEAT_EXTENDED_REJ) == 0) {
++#if MYNEWT_VAL(CONSOLE_LOG)
++                console_printf("[nimble/controller/src/ble_ll_ctrl.c] rspbuf[0] = opcode = BLE_LL_CTRL_REJECT_IND;\n");
++#endif
+                 opcode = BLE_LL_CTRL_REJECT_IND;
+             }
+         }
+diff --git a/nimble/controller/src/ble_ll_sched.c b/nimble/controller/src/ble_ll_sched.c
+index 40139a80..eac92279 100644
+--- a/nimble/controller/src/ble_ll_sched.c
++++ b/nimble/controller/src/ble_ll_sched.c
+@@ -68,7 +68,7 @@ static struct ble_ll_sched_css g_ble_ll_sched_css = {
+ typedef int (* ble_ll_sched_preempt_cb_t)(struct ble_ll_sched_item *sch,
+                                           struct ble_ll_sched_item *item);
+ 
+-/* XXX: TODO:
++/* XXX: TODO :
+  *  1) Add some accounting to the schedule code to see how late we are
+  *  (min/max?)
+  *
+@@ -1105,7 +1105,7 @@ ble_ll_sched_scan_aux(struct ble_ll_sched_item *sch, uint32_t pdu_time,
+ 
+     sch->start_time = pdu_time + offset_ticks - g_ble_ll_sched_offset_ticks;
+     sch->remainder = offset_us - ble_ll_tmr_t2u(offset_ticks);
+-    /* TODO: make some sane slot reservation */
++    /* TODO : make some sane slot reservation */
+     sch->end_time = sch->start_time + ble_ll_tmr_u2t(5000);
+ 
+     OS_ENTER_CRITICAL(sr);
+diff --git a/nimble/controller/syscfg.yml b/nimble/controller/syscfg.yml
+index 6ff7bdb3..f639c774 100644
+--- a/nimble/controller/syscfg.yml
++++ b/nimble/controller/syscfg.yml
+@@ -17,6 +17,16 @@
+ #
+ 
+ syscfg.defs:
++    BLE_LL_INSTR_SKDS_FIXED_ENABLE:
++        description: >
++            Enable using a fixed SKD_S value (0xdeadbeefdeadbeef).
++        value: 0
++
++    BLE_LL_ENCRYPT_DEBUG_DISABLE:
++        description: >
++            If set to 1, unset the BLE_LL_ENCRYPT_DEBUG flag.
++        value: 1
++
+     BLE_CONTROLLER: 1
+ 
+     BLE_LL_ROLE_CENTRAL:
+diff --git a/nimble/drivers/native/src/ble_phy.c b/nimble/drivers/native/src/ble_phy.c
+index f9ab0fcb..591ffb6d 100644
+--- a/nimble/drivers/native/src/ble_phy.c
++++ b/nimble/drivers/native/src/ble_phy.c
+@@ -123,7 +123,7 @@ STATS_NAME_START(ble_phy_stats)
+     STATS_NAME(ble_phy_stats, tx_hw_err)
+ STATS_NAME_END(ble_phy_stats)
+ 
+-/* XXX: TODO:
++/* XXX: TODO :
+ 
+  * 1) Test the following to make sure it works: suppose an event is already
+  * set to 1 and the interrupt is not enabled. What happens if you enable the
+diff --git a/nimble/drivers/nrf52/include/ble/xcvr.h b/nimble/drivers/nrf52/include/ble/xcvr.h
+index 757bb80f..649f91c2 100644
+--- a/nimble/drivers/nrf52/include/ble/xcvr.h
++++ b/nimble/drivers/nrf52/include/ble/xcvr.h
+@@ -24,6 +24,8 @@
+ extern "C" {
+ #endif
+ 
++#include <stdint.h>
++
+ #define XCVR_RX_RADIO_RAMPUP_USECS  (40)
+ #define XCVR_TX_RADIO_RAMPUP_USECS  (40)
+ 
+diff --git a/nimble/drivers/nrf52/pkg.yml b/nimble/drivers/nrf52/pkg.yml
+index a1ff457e..6b1b62de 100644
+--- a/nimble/drivers/nrf52/pkg.yml
++++ b/nimble/drivers/nrf52/pkg.yml
+@@ -27,5 +27,10 @@ pkg.keywords:
+ 
+ pkg.apis: ble_driver
+ pkg.deps:
++    - "@apache-mynewt-core/sys/console/full"
++    - "@apache-mynewt-core/crypto/tinycrypt"
+     - nimble
+     - nimble/controller
++
++pkg.req_apis:
++    - console
+\ No newline at end of file
+diff --git a/nimble/drivers/nrf52/src/ble_hw.c b/nimble/drivers/nrf52/src/ble_hw.c
+index ef4c28b0..4b0948e1 100644
+--- a/nimble/drivers/nrf52/src/ble_hw.c
++++ b/nimble/drivers/nrf52/src/ble_hw.c
+@@ -36,6 +36,10 @@
+ #include "os/os_trace_api.h"
+ #include <hal/nrf_rng.h>
+ #include "hal/nrf_ecb.h"
++#include "console/console.h"
++#include "screamingchannels/radio_test.h"
++#include "screamingchannels/dump.h"
++#include "screamingchannels/misc.h"
+ 
+ /* Total number of resolving list elements */
+ #define BLE_HW_RESOLV_LIST_SIZE     (16)
+@@ -260,6 +264,7 @@ ble_hw_whitelist_match(void)
+     return (int)NRF_RADIO->EVENTS_DEVMATCH;
+ }
+ 
++#if MYNEWT_VAL(BLE_CRYPTO_HW)
+ /* Encrypt data */
+ int
+ ble_hw_encrypt_block(struct ble_encryption_block *ecb)
+@@ -268,35 +273,54 @@ ble_hw_encrypt_block(struct ble_encryption_block *ecb)
+     uint32_t end;
+     uint32_t err;
+ 
+-    /* Stop ECB */
+-    nrf_ecb_task_trigger(NRF_ECB, NRF_ECB_TASK_STOPECB);
+-    /* XXX: does task stop clear these counters? Anyway to do this quicker? */
+-    NRF_ECB->EVENTS_ENDECB = 0;
+-    NRF_ECB->EVENTS_ERRORECB = 0;
+-    NRF_ECB->ECBDATAPTR = (uint32_t)ecb;
+-
+-    /* Start ECB */
+-    nrf_ecb_task_trigger(NRF_ECB, NRF_ECB_TASK_STARTECB);
+-
+-    /* Wait till error or done */
+-    rc = 0;
+-    while (1) {
+-        end = NRF_ECB->EVENTS_ENDECB;
+-        err = NRF_ECB->EVENTS_ERRORECB;
+-        if (end || err) {
+-            if (err) {
+-                rc = -1;
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[nimble/drivers/nrf52/src/ble_hw.c] ble_hw_encrypt_block_hardware()\n");
++#endif
++
++    for (int i = 0; i < 3; i++) {
++        /* Stop ECB */
++        nrf_ecb_task_trigger(NRF_ECB, NRF_ECB_TASK_STOPECB);
++        /* XXX: does task stop clear these counters? Anyway to do this quicker? */
++        NRF_ECB->EVENTS_ENDECB = 0;
++        NRF_ECB->EVENTS_ERRORECB = 0;
++        NRF_ECB->ECBDATAPTR = (uint32_t)ecb;
++
++        /* Start ECB */
++        nrf_ecb_task_trigger(NRF_ECB, NRF_ECB_TASK_STARTECB);
++
++        /* Wait till error or done */
++        rc = 0;
++        while (1) {
++            end = NRF_ECB->EVENTS_ENDECB;
++            err = NRF_ECB->EVENTS_ERRORECB;
++            if (end || err) {
++                if (err) {
++                    rc = -1;
++                }
++                break;
+             }
+-            break;
++    #if BABBLESIM
++            tm_tick();
++    #endif
+         }
+-#if BABBLESIM
+-        tm_tick();
+-#endif
+     }
+-
+     return rc;
+ }
+ 
++#else
++
++#include "tinycrypt/aes.h"
++static struct tc_aes_key_sched_struct g_ctx;
++/* Encrypt data */
++int
++ble_hw_encrypt_block(struct ble_encryption_block *ecb)
++{
++    tc_aes128_set_encrypt_key(&g_ctx, ecb->key);
++    tc_aes_encrypt(ecb->cipher_text, ecb->plain_text, &g_ctx);
++    return 0;
++}
++#endif
++
+ /**
+  * Random number generator ISR.
+  */
+diff --git a/nimble/drivers/nrf52/syscfg.yml b/nimble/drivers/nrf52/syscfg.yml
+index 3bd49708..207039ff 100644
+--- a/nimble/drivers/nrf52/syscfg.yml
++++ b/nimble/drivers/nrf52/syscfg.yml
+@@ -17,6 +17,11 @@
+ #
+ 
+ syscfg.defs:
++    BLE_CRYPTO_HW:
++        description: >
++            Enable or disable the use of hardware AES-ECB peripheral from nRF52832.
++        value: 1
++
+     BLE_PHY_SYSVIEW:
+         description: >
+             Enable SystemView tracing module for radio driver.
+diff --git a/nimble/drivers/nrf5340/src/ble_phy.c b/nimble/drivers/nrf5340/src/ble_phy.c
+index 9734e887..675d2a07 100644
+--- a/nimble/drivers/nrf5340/src/ble_phy.c
++++ b/nimble/drivers/nrf5340/src/ble_phy.c
+@@ -1432,7 +1432,7 @@ ble_phy_init(void)
+ #if MYNEWT_VAL(BLE_LL_PA) || MYNEWT_VAL(BLE_LL_LNA)
+     /* We keep both channels enabled and CLR task subscribed all the time. It's
+      * enough to just (un)subscribe SET task when needed.
+-     * TODO: figure out if this affects power consumption
++     * TODO : figure out if this affects power consumption
+      */
+ 
+ #if PLNA_SINGLE_GPIO
+diff --git a/nimble/host/include/host/ble_store.h b/nimble/host/include/host/ble_store.h
+index 30a5666c..1ae7e25a 100644
+--- a/nimble/host/include/host/ble_store.h
++++ b/nimble/host/include/host/ble_store.h
+@@ -37,6 +37,8 @@ extern "C" {
+ /** About to execute a procedure that may fail due to overflow. */
+ #define BLE_STORE_EVENT_FULL            2
+ 
++// Find the structure used for LTK (key) lookup in the security database.
++// As the specification says, it use the BD_ADDR, EDIV, and RAND.
+ /**
+  * Used as a key for lookups of security material.  This struct corresponds to
+  * the following store object types:
+@@ -254,7 +256,7 @@ int ble_store_full_event(int obj_type, uint16_t conn_handle);
+ 
+ int ble_store_read_our_sec(const struct ble_store_key_sec *key_sec,
+                            struct ble_store_value_sec *value_sec);
+-int ble_store_write_our_sec(const struct ble_store_value_sec *value_sec);
++int ble_store_write_our_sec(struct ble_store_value_sec *value_sec);
+ int ble_store_delete_our_sec(const struct ble_store_key_sec *key_sec);
+ int ble_store_read_peer_sec(const struct ble_store_key_sec *key_sec,
+                             struct ble_store_value_sec *value_sec);
+diff --git a/nimble/host/mesh/src/glue.c b/nimble/host/mesh/src/glue.c
+index c00af947..faa29170 100644
+--- a/nimble/host/mesh/src/glue.c
++++ b/nimble/host/mesh/src/glue.c
+@@ -776,7 +776,7 @@ bt_le_adv_start(const struct ble_gap_adv_params *param,
+         }
+     }
+ 
+-    /*TODO: We could use duration and max events in the future */
++    /*TODO : We could use duration and max events in the future */
+     err = ble_gap_ext_adv_start(instance, 0, 0);
+     return err;
+ 
+diff --git a/nimble/host/mesh/src/lpn.c b/nimble/host/mesh/src/lpn.c
+index 1d2f229e..c0ced748 100644
+--- a/nimble/host/mesh/src/lpn.c
++++ b/nimble/host/mesh/src/lpn.c
+@@ -577,7 +577,7 @@ int bt_mesh_lpn_friend_offer(struct bt_mesh_net_rx *rx,
+ 			return err;
+ 		}
+ 	}
+-	/* TODO: Add offer acceptance criteria check */
++	/* TODO : Add offer acceptance criteria check */
+ 
+ 	lpn->recv_win = msg->recv_win;
+ 	lpn->queue_size = msg->queue_size;
+diff --git a/nimble/host/mesh/src/mesh.c b/nimble/host/mesh/src/mesh.c
+index 6ab71e8b..a781b029 100644
+--- a/nimble/host/mesh/src/mesh.c
++++ b/nimble/host/mesh/src/mesh.c
+@@ -56,7 +56,7 @@ int bt_mesh_provision(const uint8_t net_key[16], uint16_t net_idx,
+ 	}
+ 
+ 	/*
+-	 * FIXME:
++	 * FIXME :
+ 	 * Should net_key and iv_index be over-ridden?
+ 	 */
+ 	if (IS_ENABLED(CONFIG_BT_MESH_CDB) &&
+diff --git a/nimble/host/mesh/src/pb_gatt_srv.c b/nimble/host/mesh/src/pb_gatt_srv.c
+index 046c9424..2d5a8cc3 100644
+--- a/nimble/host/mesh/src/pb_gatt_srv.c
++++ b/nimble/host/mesh/src/pb_gatt_srv.c
+@@ -315,7 +315,7 @@ int bt_mesh_pb_gatt_enable(void)
+ 	rc = ble_gatts_find_svc(BLE_UUID16_DECLARE(BT_UUID_MESH_PROV_VAL), &handle);
+ 	assert(rc == 0);
+ 	ble_gatts_svc_set_visibility(handle, 1);
+-	/* FIXME: figure out end handle */
++	/* FIXME : figure out end handle */
+ 	ble_svc_gatt_changed(svc_handles.prov_h, 0xffff);
+ 
+ 	service_registered = true;
+@@ -338,7 +338,7 @@ int bt_mesh_pb_gatt_disable(void)
+ 	rc = ble_gatts_find_svc(BLE_UUID16_DECLARE(BT_UUID_MESH_PROV_VAL), &handle);
+ 	assert(rc == 0);
+ 	ble_gatts_svc_set_visibility(handle, 0);
+-	/* FIXME: figure out end handle */
++	/* FIXME : figure out end handle */
+ 	ble_svc_gatt_changed(svc_handles.prov_h, 0xffff);
+ 	service_registered = false;
+ 
+diff --git a/nimble/host/mesh/src/proxy_srv.c b/nimble/host/mesh/src/proxy_srv.c
+index 65a5af78..954bc014 100644
+--- a/nimble/host/mesh/src/proxy_srv.c
++++ b/nimble/host/mesh/src/proxy_srv.c
+@@ -660,7 +660,7 @@ int bt_mesh_proxy_gatt_enable(void)
+ 	rc = ble_gatts_find_svc(BLE_UUID16_DECLARE(BT_UUID_MESH_PROXY_VAL), &handle);
+ 	assert(rc == 0);
+ 	ble_gatts_svc_set_visibility(handle, 1);
+-	/* FIXME: figure out end handle */
++	/* FIXME : figure out end handle */
+ 	ble_svc_gatt_changed(svc_handles.proxy_h, 0xffff);
+ 
+ 	service_registered = true;
+@@ -709,7 +709,7 @@ int bt_mesh_proxy_gatt_disable(void)
+ 	rc = ble_gatts_find_svc(BLE_UUID16_DECLARE(BT_UUID_MESH_PROXY_VAL), &handle);
+ 	assert(rc == 0);
+ 	ble_gatts_svc_set_visibility(handle, 0);
+-	/* FIXME: figure out end handle */
++	/* FIXME : figure out end handle */
+ 	ble_svc_gatt_changed(svc_handles.proxy_h, 0xffff);
+ 	service_registered = false;
+ 
+diff --git a/nimble/host/pkg.yml b/nimble/host/pkg.yml
+index c069283c..a12d63a1 100644
+--- a/nimble/host/pkg.yml
++++ b/nimble/host/pkg.yml
+@@ -29,6 +29,7 @@ pkg.deps:
+     - "@apache-mynewt-core/kernel/os"
+     - "@apache-mynewt-core/sys/log/modlog"
+     - "@apache-mynewt-core/util/mem"
++    - "@apache-mynewt-core/sys/console/full"
+     - nimble
+     - nimble/transport
+ 
+diff --git a/nimble/host/services/ans/include/services/ans/ble_svc_ans.h b/nimble/host/services/ans/include/services/ans/ble_svc_ans.h
+index 435e9e11..cb0fd19e 100644
+--- a/nimble/host/services/ans/include/services/ans/ble_svc_ans.h
++++ b/nimble/host/services/ans/include/services/ans/ble_svc_ans.h
+@@ -34,7 +34,7 @@ struct ble_hs_cfg;
+ 
+ /* Alert Notification Service Category ID Bit Masks
+  *
+- * TODO: Add remaining 2 optional categories */
++ * TODO : Add remaining 2 optional categories */
+ #define BLE_SVC_ANS_CAT_BM_NONE                             0x00
+ #define BLE_SVC_ANS_CAT_BM_SIMPLE_ALERT                     0x01
+ #define BLE_SVC_ANS_CAT_BM_EMAIL                            0x02
+@@ -47,7 +47,7 @@ struct ble_hs_cfg;
+ 
+ /* Alert Notification Service Category IDs
+  *
+- * TODO: Add remaining 2 optional categories */
++ * TODO : Add remaining 2 optional categories */
+ #define BLE_SVC_ANS_CAT_ID_SIMPLE_ALERT                     0
+ #define BLE_SVC_ANS_CAT_ID_EMAIL                            1
+ #define BLE_SVC_ANS_CAT_ID_NEWS                             2
+@@ -59,7 +59,7 @@ struct ble_hs_cfg;
+ 
+ /* Number of valid ANS categories
+  *
+- * TODO: Add remaining 2 optional categories */
++ * TODO : Add remaining 2 optional categories */
+ #define BLE_SVC_ANS_CAT_NUM                                 8
+ 
+ /* Alert Notification Control Point Command IDs */
+diff --git a/nimble/host/services/ans/src/ble_svc_ans.c b/nimble/host/services/ans/src/ble_svc_ans.c
+index df1e0764..dc3c27ea 100644
+--- a/nimble/host/services/ans/src/ble_svc_ans.c
++++ b/nimble/host/services/ans/src/ble_svc_ans.c
+@@ -52,7 +52,7 @@ static uint16_t ble_svc_ans_unr_alert_val_handle;
+ 
+ /* Connection handle
+  *
+- * TODO: In order to support multiple connections we would need to save
++ * TODO : In order to support multiple connections we would need to save
+  *       the handles for every connection, not just the most recent. Then
+  *       we would need to notify each connection when needed.
+  * */
+diff --git a/nimble/host/src/ble_att_svr.c b/nimble/host/src/ble_att_svr.c
+index 272fc567..b63b5201 100644
+--- a/nimble/host/src/ble_att_svr.c
++++ b/nimble/host/src/ble_att_svr.c
+@@ -25,6 +25,7 @@
+ #include "nimble/ble.h"
+ #include "host/ble_uuid.h"
+ #include "ble_hs_priv.h"
++#include <console/console.h>
+ 
+ #if NIMBLE_BLE_CONNECT
+ /**
+@@ -1451,6 +1452,9 @@ done:
+ int
+ ble_att_svr_rx_read(uint16_t conn_handle, struct os_mbuf **rxom)
+ {
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[nimble/host/ble_att_clt.c] ble_att_svr_rx_read()\n");
++#endif
+ #if !MYNEWT_VAL(BLE_ATT_SVR_READ)
+     return BLE_HS_ENOTSUP;
+ #endif
+diff --git a/nimble/host/src/ble_gap.c b/nimble/host/src/ble_gap.c
+index 113a972d..f931b14d 100644
+--- a/nimble/host/src/ble_gap.c
++++ b/nimble/host/src/ble_gap.c
+@@ -26,6 +26,7 @@
+ #include "host/ble_hs_hci.h"
+ #include "ble_hs_priv.h"
+ #include "ble_gap_priv.h"
++#include <console/console.h>
+ 
+ #if MYNEWT
+ #include "bsp/bsp.h"
+@@ -2289,7 +2290,9 @@ ble_gap_adv_stop_no_lock(void)
+ 
+     active = ble_gap_adv_active();
+ 
+-    BLE_HS_LOG(INFO, "GAP procedure initiated: stop advertising.\n");
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[nimble/host/ble_gap.c] GAP procedure initiated: stop advertising\n");
++#endif
+ 
+     rc = ble_gap_adv_enable_tx(0);
+     if (rc != 0) {
+@@ -2547,7 +2550,9 @@ ble_gap_adv_start(uint8_t own_addr_type, const ble_addr_t *direct_addr,
+         goto done;
+     }
+ 
+-    BLE_HS_LOG(INFO, "GAP procedure initiated: advertise; ");
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[nimble/host/ble_gap.c] GAP procedure initiated: advertise\n");
++#endif
+     ble_gap_log_adv(own_addr_type, direct_addr, adv_params);
+     BLE_HS_LOG(INFO, "\n");
+ 
+@@ -4578,7 +4583,9 @@ ble_gap_disc(uint8_t own_addr_type, int32_t duration_ms,
+     ble_gap_master.cb = cb;
+     ble_gap_master.cb_arg = cb_arg;
+ 
+-    BLE_HS_LOG(INFO, "GAP procedure initiated: discovery; ");
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[nimble/host/ble_gap.c] GAP procedure initiated: discovery\n");
++#endif
+     ble_gap_log_disc(own_addr_type, duration_ms, &params);
+     BLE_HS_LOG(INFO, "\n");
+ 
+@@ -5085,7 +5092,9 @@ ble_gap_connect(uint8_t own_addr_type, const ble_addr_t *peer_addr,
+         goto done;
+     }
+ 
+-    BLE_HS_LOG(INFO, "GAP procedure initiated: connect; ");
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[nimble/host/ble_gap.c] GAP procedure initiated: connect\n");
++#endif    
+     ble_gap_log_conn(own_addr_type, peer_addr, conn_params);
+     BLE_HS_LOG(INFO, "\n");
+ 
+@@ -5149,9 +5158,11 @@ ble_gap_terminate_with_conn(struct ble_hs_conn *conn, uint8_t hci_reason)
+         return BLE_HS_EALREADY;
+     }
+ 
+-    BLE_HS_LOG(INFO, "GAP procedure initiated: terminate connection; "
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[nimble/host/ble_gap.c] GAP procedure initiated: terminate connection; "
+                      "conn_handle=%d hci_reason=%d\n",
+                      conn->bhc_handle, hci_reason);
++#endif
+ 
+     cmd.conn_handle = htole16(conn->bhc_handle);
+     cmd.reason = hci_reason;
+@@ -5233,7 +5244,9 @@ ble_gap_conn_cancel_no_lock(void)
+         goto done;
+     }
+ 
+-    BLE_HS_LOG(INFO, "GAP procedure initiated: cancel connection\n");
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[nimble/host/ble_gap.c] GAP procedure initiated: cancel connection\n");
++#endif
+ 
+     rc = ble_gap_conn_cancel_tx();
+     if (rc != 0) {
+@@ -5547,7 +5560,9 @@ ble_gap_update_params(uint16_t conn_handle,
+     entry->exp_os_ticks = ble_npl_time_get() +
+                           ble_npl_time_ms_to_ticks32(BLE_GAP_UPDATE_TIMEOUT_MS);
+ 
+-    BLE_HS_LOG(INFO, "GAP procedure initiated: ");
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[nimble/host/ble_gap.c] GAP procedure initiated: ");
++#endif
+     ble_gap_log_update(conn_handle, params);
+     BLE_HS_LOG(INFO, "\n");
+ 
+diff --git a/nimble/host/src/ble_hs.c b/nimble/host/src/ble_hs.c
+index 13b6fe29..33465390 100644
+--- a/nimble/host/src/ble_hs.c
++++ b/nimble/host/src/ble_hs.c
+@@ -29,6 +29,7 @@
+ #ifndef MYNEWT
+ #include "nimble/nimble_port.h"
+ #endif
++#include <console/console.h>
+ 
+ #define BLE_HS_HCI_EVT_COUNT    MYNEWT_VAL(BLE_TRANSPORT_EVT_COUNT)
+ 
+@@ -596,6 +597,9 @@ ble_hs_hw_error(uint8_t hw_code)
+ int
+ ble_hs_start(void)
+ {
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[nimble/host/ble_hs.c] ble_hs_start()\n");
++#endif
+     int rc;
+ 
+     ble_hs_lock();
+diff --git a/nimble/host/src/ble_hs_stop.c b/nimble/host/src/ble_hs_stop.c
+index e48fff38..e503aeb5 100644
+--- a/nimble/host/src/ble_hs_stop.c
++++ b/nimble/host/src/ble_hs_stop.c
+@@ -139,7 +139,7 @@ ble_hs_stop_terminate_timeout_cb(struct ble_npl_event *ev)
+     BLE_HS_LOG(ERROR, "ble_hs_stop_terminate_timeout_cb,"
+                       "%d connection(s) still up \n", ble_hs_stop_conn_cnt);
+ 
+-    /* TODO: Shall we send error here? */
++    /* TODO : Shall we send error here? */
+     ble_hs_stop_done(0);
+ }
+ 
+diff --git a/nimble/host/src/ble_l2cap_coc.c b/nimble/host/src/ble_l2cap_coc.c
+index f74cea28..1a9d315e 100644
+--- a/nimble/host/src/ble_l2cap_coc.c
++++ b/nimble/host/src/ble_l2cap_coc.c
+@@ -225,7 +225,7 @@ ble_l2cap_coc_rx_fn(struct ble_l2cap_chan *chan)
+ 
+         rc = os_mbuf_appendfrom(rx->sdu, *om, 0, om_total - BLE_L2CAP_SDU_SIZE);
+         if (rc != 0) {
+-            /* FIXME: User shall give us big enough buffer.
++            /* FIXME : User shall give us big enough buffer.
+              * need to handle it better
+              */
+             BLE_HS_LOG(INFO, "Could not append data rc=%d\n", rc);
+@@ -249,7 +249,7 @@ ble_l2cap_coc_rx_fn(struct ble_l2cap_chan *chan)
+         }
+         rc  = os_mbuf_appendfrom(rx->sdu, *om, 0, om_total);
+         if (rc != 0) {
+-            /* FIXME: need to handle it better */
++            /* FIXME : need to handle it better */
+             BLE_HS_LOG(DEBUG, "Could not append data rc=%d\n", rc);
+             assert(0);
+         }
+diff --git a/nimble/host/src/ble_l2cap_sig.c b/nimble/host/src/ble_l2cap_sig.c
+index 05f5829f..a0219c31 100644
+--- a/nimble/host/src/ble_l2cap_sig.c
++++ b/nimble/host/src/ble_l2cap_sig.c
+@@ -786,7 +786,7 @@ ble_l2cap_sig_credit_base_reconfig_req_rx(uint16_t conn_handle,
+     rsp = ble_l2cap_sig_cmd_get(BLE_L2CAP_SIG_OP_CREDIT_RECONFIG_RSP,
+                                     hdr->identifier, sizeof(*rsp) , &txom);
+     if (!rsp) {
+-        /* TODO: Reuse request buffer for the response. For now in such a case
++        /* TODO : Reuse request buffer for the response. For now in such a case
+          * remote will timeout.
+          */
+         BLE_HS_LOG(ERROR, "No memory for the response\n");
+diff --git a/nimble/host/src/ble_sm.c b/nimble/host/src/ble_sm.c
+index 5489551a..b9fd75c7 100644
+--- a/nimble/host/src/ble_sm.c
++++ b/nimble/host/src/ble_sm.c
+@@ -47,6 +47,7 @@
+ #include "nimble/nimble_opt.h"
+ #include "host/ble_sm.h"
+ #include "ble_hs_priv.h"
++#include "console/console.h"
+ 
+ #if NIMBLE_BLE_CONNECT
+ #if NIMBLE_BLE_SM
+@@ -1261,6 +1262,9 @@ ble_sm_ltk_req_reply_tx(uint16_t conn_handle, const uint8_t *ltk)
+ static int
+ ble_sm_ltk_req_neg_reply_tx(uint16_t conn_handle)
+ {
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[nimble/host/src/ble_sm.c] ble_sm_ltk_req_neg_reply_tx()\n");
++#endif
+     struct ble_hci_le_lt_key_req_neg_reply_cp cmd;
+     struct ble_hci_le_lt_key_req_neg_reply_cp rsp;
+     int rc;
+@@ -1298,6 +1302,9 @@ static void
+ ble_sm_ltk_restore_exec(struct ble_sm_proc *proc, struct ble_sm_result *res,
+                         void *arg)
+ {
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[nimble/host/src/ble_sm.c] ble_sm_ltk_restore_exec()\n");
++#endif
+     struct ble_store_value_sec *value_sec;
+ 
+     BLE_HS_DBG_ASSERT(!(proc->flags & BLE_SM_PROC_F_INITIATOR));
+@@ -1305,6 +1312,9 @@ ble_sm_ltk_restore_exec(struct ble_sm_proc *proc, struct ble_sm_result *res,
+     value_sec = arg;
+ 
+     if (value_sec != NULL) {
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[nimble/host/src/ble_sm.c] /* Store provided a key; send it to the controller. */\n");
++#endif
+         /* Store provided a key; send it to the controller. */
+         res->app_status = ble_sm_ltk_req_reply_tx(
+             proc->conn_handle, value_sec->ltk);
+@@ -1319,6 +1329,10 @@ ble_sm_ltk_restore_exec(struct ble_sm_proc *proc, struct ble_sm_result *res,
+             res->enc_cb = 1;
+         }
+     } else {
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[nimble/host/src/ble_sm.c] /* Application does not have the requested key in its database.\nSend a negative reply to the controller. */\n");
++    console_printf("[nimble/host/src/ble_sm.c] The controller doesn't receive any LTK from here.\nNo session key calculation can be processed with the LTK as a key.\n");
++#endif
+         /* Application does not have the requested key in its database.  Send a
+          * negative reply to the controller.
+          */
+@@ -1334,6 +1348,9 @@ ble_sm_ltk_restore_exec(struct ble_sm_proc *proc, struct ble_sm_result *res,
+ int
+ ble_sm_ltk_req_rx(const struct ble_hci_ev_le_subev_lt_key_req *ev)
+ {
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[nimble/host/src/ble_sm.c] ble_sm_ltk_req_rx()\n");
++#endif
+     struct ble_store_value_sec value_sec;
+     struct ble_hs_conn_addrs addrs;
+     struct ble_sm_result res;
+@@ -1360,6 +1377,9 @@ ble_sm_ltk_req_rx(const struct ble_hci_ev_le_subev_lt_key_req *ev)
+         if (proc == NULL) {
+             res.app_status = BLE_HS_ENOMEM;
+         } else {
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[nimble/host/src/ble_sm.c] proc->state = BLE_SM_PROC_STATE_LTK_RESTORE;\n");
++#endif
+             proc->conn_handle = conn_handle;
+             proc->state = BLE_SM_PROC_STATE_LTK_RESTORE;
+             ble_sm_insert(proc);
+diff --git a/nimble/host/src/ble_sm_alg.c b/nimble/host/src/ble_sm_alg.c
+index 8b3326de..d4c15878 100644
+--- a/nimble/host/src/ble_sm_alg.c
++++ b/nimble/host/src/ble_sm_alg.c
+@@ -63,6 +63,10 @@ ble_sm_alg_encrypt(const uint8_t *key, const uint8_t *plaintext,
+ 
+     swap_buf(tmp, key, 16);
+ 
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[nimble/host/ble_sm_alg.c] ble_sm_alg_encrypt()\n");
++#endif
++
+     if (tc_aes128_set_encrypt_key(&s, tmp) == TC_CRYPTO_FAIL) {
+         return BLE_HS_EUNKNOWN;
+     }
+@@ -101,6 +105,9 @@ ble_sm_alg_s1(const uint8_t *k, const uint8_t *r1, const uint8_t *r2,
+         return rc;
+     }
+ 
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[nimble/host/ble_sm_alg.c] ble_sm_alg_s1()\n");
++#endif
+     BLE_HS_LOG(DEBUG, "ble_sm_alg_s1()\n    k=");
+     ble_hs_log_flat_buf(k, 16);
+     BLE_HS_LOG(DEBUG, "\n    r1=");
+@@ -124,6 +131,9 @@ ble_sm_alg_c1(const uint8_t *k, const uint8_t *r,
+     uint8_t p1[16], p2[16];
+     int rc;
+ 
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[nimble/host/ble_sm_alg.c] ble_sm_alg_c1()\n");
++#endif
+     BLE_HS_LOG(DEBUG, "ble_sm_alg_c1()\n    k=");
+     ble_hs_log_flat_buf(k, 16);
+     BLE_HS_LOG(DEBUG, "\n    r=");
+diff --git a/nimble/host/src/ble_sm_lgcy.c b/nimble/host/src/ble_sm_lgcy.c
+index 1a500fb7..f3b2d802 100644
+--- a/nimble/host/src/ble_sm_lgcy.c
++++ b/nimble/host/src/ble_sm_lgcy.c
+@@ -23,6 +23,7 @@
+ #include "nimble/nimble_opt.h"
+ #include "host/ble_sm.h"
+ #include "ble_hs_priv.h"
++#include <console/console.h>
+ 
+ #if NIMBLE_BLE_CONNECT
+ #if MYNEWT_VAL(BLE_SM_LEGACY)
+@@ -127,6 +128,9 @@ ble_sm_lgcy_confirm_exec(struct ble_sm_proc *proc, struct ble_sm_result *res)
+ 
+     ble_sm_ia_ra(proc, &iat, ia, &rat, ra);
+ 
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[nimble/host/ble_sm_lgcy.c] ble_sm_lgcy_confirm_exec()\n");
++#endif
+     rc = ble_sm_alg_c1(proc->tk, ble_sm_our_pair_rand(proc), proc->pair_req,
+                        proc->pair_rsp, iat, rat, ia, ra, cmd->value);
+     if (rc != 0) {
+@@ -215,6 +219,9 @@ ble_sm_lgcy_random_rx(struct ble_sm_proc *proc, struct ble_sm_result *res)
+ 
+     ble_sm_ia_ra(proc, &iat, ia, &rat, ra);
+ 
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[nimble/host/ble_sm_lgcy.c] ble_sm_lgcy_random_rx()\n");
++#endif
+     rc = ble_sm_alg_c1(proc->tk, ble_sm_peer_pair_rand(proc), proc->pair_req,
+                        proc->pair_rsp, iat, rat, ia, ra, confirm_val);
+     if (rc != 0) {
+diff --git a/nimble/host/src/ble_store.c b/nimble/host/src/ble_store.c
+index 22e60894..ad47385f 100644
+--- a/nimble/host/src/ble_store.c
++++ b/nimble/host/src/ble_store.c
+@@ -21,6 +21,7 @@
+ 
+ #include "host/ble_store.h"
+ #include "ble_hs_priv.h"
++#include <console/console.h>
+ 
+ int
+ ble_store_read(int obj_type, const union ble_store_key *key,
+@@ -171,8 +172,18 @@ ble_store_persist_sec(int obj_type,
+ }
+ 
+ int
+-ble_store_write_our_sec(const struct ble_store_value_sec *value_sec)
++ble_store_write_our_sec(struct ble_store_value_sec *value_sec)
+ {
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[nimble/host/ble_store.c] ble_store_write_our_sec()\n");
++    console_printf("ediv=%#hx\n", value_sec->ediv);
++    console_printf("rand=%#llx\n", value_sec->rand_num);
++    console_printf("ltk=0x%02hx%02hx%02hx%02hx%02hx%02hx%02hx%02hx%02hx%02hx%02hx%02hx%02hx%02hx%02hx%02hx\n",
++                   value_sec->ltk[0], value_sec->ltk[1], value_sec->ltk[2], value_sec->ltk[3],
++                   value_sec->ltk[4], value_sec->ltk[5], value_sec->ltk[6], value_sec->ltk[7],
++                   value_sec->ltk[8], value_sec->ltk[9], value_sec->ltk[10], value_sec->ltk[11],
++                   value_sec->ltk[12], value_sec->ltk[13], value_sec->ltk[14], value_sec->ltk[15]);
++#endif
+     int rc;
+ 
+     rc = ble_store_persist_sec(BLE_STORE_OBJ_TYPE_OUR_SEC, value_sec);
+@@ -182,6 +193,9 @@ ble_store_write_our_sec(const struct ble_store_value_sec *value_sec)
+ int
+ ble_store_delete_our_sec(const struct ble_store_key_sec *key_sec)
+ {
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[nimble/host/ble_store.c] ble_store_delete_our_sec()\n");
++#endif
+     union ble_store_key *store_key;
+     int rc;
+ 
+@@ -193,6 +207,9 @@ ble_store_delete_our_sec(const struct ble_store_key_sec *key_sec)
+ int
+ ble_store_delete_peer_sec(const struct ble_store_key_sec *key_sec)
+ {
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[nimble/host/ble_store.c] ble_store_delete_peer_sec()\n");
++#endif
+     union ble_store_key *store_key;
+     int rc;
+ 
+@@ -226,6 +243,16 @@ ble_store_read_peer_sec(const struct ble_store_key_sec *key_sec,
+ int
+ ble_store_write_peer_sec(const struct ble_store_value_sec *value_sec)
+ {
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[nimble/host/ble_store.c] ble_store_write_peer_sec()\n");
++    console_printf("ediv=%#hx\n", value_sec->ediv);
++    console_printf("rand=%#llx\n", value_sec->rand_num);
++    console_printf("ltk=0x%02hx%02hx%02hx%02hx%02hx%02hx%02hx%02hx%02hx%02hx%02hx%02hx%02hx%02hx%02hx%02hx\n",
++                   value_sec->ltk[0], value_sec->ltk[1], value_sec->ltk[2], value_sec->ltk[3],
++                   value_sec->ltk[4], value_sec->ltk[5], value_sec->ltk[6], value_sec->ltk[7],
++                   value_sec->ltk[8], value_sec->ltk[9], value_sec->ltk[10], value_sec->ltk[11],
++                   value_sec->ltk[12], value_sec->ltk[13], value_sec->ltk[14], value_sec->ltk[15]);
++#endif
+     int rc;
+ 
+     rc = ble_store_persist_sec(BLE_STORE_OBJ_TYPE_PEER_SEC, value_sec);
+@@ -390,6 +417,9 @@ ble_store_iterate(int obj_type,
+ int
+ ble_store_clear(void)
+ {
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[nimble/host/ble_store.c] ble_store_clear()\n");
++#endif
+     const uint8_t obj_types[] = {
+         BLE_STORE_OBJ_TYPE_OUR_SEC,
+         BLE_STORE_OBJ_TYPE_PEER_SEC,
+diff --git a/nimble/host/store/config/src/ble_store_config.c b/nimble/host/store/config/src/ble_store_config.c
+index cc1d59af..8bdc5ad4 100644
+--- a/nimble/host/store/config/src/ble_store_config.c
++++ b/nimble/host/store/config/src/ble_store_config.c
+@@ -81,6 +81,8 @@ ble_store_config_print_key_sec(const struct ble_store_key_sec *key_sec)
+     }
+ }
+ 
++// Function that actually compare the BD_ADDR, RAND, EDIV to retrieve a LTK
++// inside the security database.
+ static int
+ ble_store_config_find_sec(const struct ble_store_key_sec *key_sec,
+                           const struct ble_store_value_sec *value_secs,
+@@ -445,6 +447,7 @@ ble_store_config_read(int obj_type, const union ble_store_key *key,
+         rc = ble_store_config_read_peer_sec(&key->sec, &value->sec);
+         return rc;
+ 
++    // Find the code used for LTK (key) lookup in the security database.
+     case BLE_STORE_OBJ_TYPE_OUR_SEC:
+         BLE_HS_LOG(DEBUG, "looking up our sec; ");
+         ble_store_config_print_key_sec(&key->sec);
+diff --git a/nimble/host/test/src/ble_sm_sc_test.c b/nimble/host/test/src/ble_sm_sc_test.c
+index cd453e02..9a3e55ee 100644
+--- a/nimble/host/test/src/ble_sm_sc_test.c
++++ b/nimble/host/test/src/ble_sm_sc_test.c
+@@ -5527,7 +5527,7 @@ TEST_SUITE(ble_sm_sc_test_suite)
+     ble_sm_sc_us_nc_iio1_rio4_b1_iat0_rat0_ik7_rk5();
+ 
+     /*** Privacy (id = public). */
+-    // FIXME: needs to be fixed due to fix for address type used
++    // FIXME : needs to be fixed due to fix for address type used
+ #if 0
+     /* Peer as initiator. */
+     ble_sm_sc_peer_jw_iio3_rio3_b1_iat2_rat2_ik7_rk7();
+diff --git a/nimble/screamingchannels/include/screamingchannels/dump.h b/nimble/screamingchannels/include/screamingchannels/dump.h
+new file mode 100644
+index 00000000..fcef9da5
+--- /dev/null
++++ b/nimble/screamingchannels/include/screamingchannels/dump.h
+@@ -0,0 +1,25 @@
++#ifndef DUMP_H
++#define DUMP_H
++
++#include <stdint.h>
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++#include "tinycrypt/aes.h"
++#include "controller/ble_ll_conn.h"
++
++void dump_tc_aes_key_sched_struct(struct tc_aes_key_sched_struct *g_ctx);
++void dump_ble_encryption_block(struct ble_encryption_block *ecb);
++void dump_ble_ll_conn_sm(struct ble_ll_conn_sm *connsm);
++void dump_ble_ll_conn_enc_data(struct ble_ll_conn_enc_data *enc_data);
++void dump_ble_addr(uint8_t * addr);
++void dump_ble_chanmap(uint8_t * chanmap);
++char * get_ble_ll_conn_enc_state(uint8_t enc_state);
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif
+diff --git a/nimble/screamingchannels/include/screamingchannels/misc.h b/nimble/screamingchannels/include/screamingchannels/misc.h
+new file mode 100644
+index 00000000..a1a7e653
+--- /dev/null
++++ b/nimble/screamingchannels/include/screamingchannels/misc.h
+@@ -0,0 +1,23 @@
++#ifndef MISC_H
++#define MISC_H
++
++#include <stdint.h>
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++// Global variables used accross other Nimble packages used to know if the
++// current connection is a Screaming Channels attack or profile collection.
++extern int IS_SC_TRAIN;
++extern int IS_SC_ATTACK;
++
++void set_is_sc_train(uint8_t * chanmap);
++void set_is_sc_attack(uint8_t * chanmap);
++int is_sc_chanmap(uint8_t * chanmap);
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif
+diff --git a/nimble/screamingchannels/include/screamingchannels/radio_test.h b/nimble/screamingchannels/include/screamingchannels/radio_test.h
+new file mode 100644
+index 00000000..e8a5af9a
+--- /dev/null
++++ b/nimble/screamingchannels/include/screamingchannels/radio_test.h
+@@ -0,0 +1,62 @@
++/**
++ * Copyright (c) 2012 - 2017, Nordic Semiconductor ASA
++ * 
++ * All rights reserved.
++ * 
++ * Redistribution and use in source and binary forms, with or without modification,
++ * are permitted provided that the following conditions are met:
++ * 
++ * 1. Redistributions of source code must retain the above copyright notice, this
++ *    list of conditions and the following disclaimer.
++ * 
++ * 2. Redistributions in binary form, except as embedded into a Nordic
++ *    Semiconductor ASA integrated circuit in a product or a software update for
++ *    such product, must reproduce the above copyright notice, this list of
++ *    conditions and the following disclaimer in the documentation and/or other
++ *    materials provided with the distribution.
++ * 
++ * 3. Neither the name of Nordic Semiconductor ASA nor the names of its
++ *    contributors may be used to endorse or promote products derived from this
++ *    software without specific prior written permission.
++ * 
++ * 4. This software, with or without modification, must only be used with a
++ *    Nordic Semiconductor ASA integrated circuit.
++ * 
++ * 5. Any software provided in binary form under this license must not be reverse
++ *    engineered, decompiled, modified and/or disassembled.
++ * 
++ * THIS SOFTWARE IS PROVIDED BY NORDIC SEMICONDUCTOR ASA "AS IS" AND ANY EXPRESS
++ * OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
++ * OF MERCHANTABILITY, NONINFRINGEMENT, AND FITNESS FOR A PARTICULAR PURPOSE ARE
++ * DISCLAIMED. IN NO EVENT SHALL NORDIC SEMICONDUCTOR ASA OR CONTRIBUTORS BE
++ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
++ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
++ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
++ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
++ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ * 
++ */
++#ifndef RADIO_TEST_H
++#define RADIO_TEST_H
++
++#include <stdint.h>
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++void radio_test_hello_world();
++void radio_disable(void);
++void radio_tx_carrier(uint8_t txpower, uint8_t mode, uint8_t channel);
++void radio_modulated_tx_carrier(uint8_t txpower, uint8_t mode, uint8_t channel);
++void radio_rx_carrier(uint8_t mode, uint8_t channel);
++void radio_tx_sweep_start(uint8_t txpower, uint8_t mode, uint8_t channel_start, uint8_t channel_end, uint8_t delayms);
++void radio_rx_sweep_start(uint8_t mode, uint8_t channel_start, uint8_t channel_end, uint8_t delayms);
++void radio_sweep_end(void);
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif
+diff --git a/nimble/screamingchannels/pkg.yml b/nimble/screamingchannels/pkg.yml
+new file mode 100644
+index 00000000..cd04101e
+--- /dev/null
++++ b/nimble/screamingchannels/pkg.yml
+@@ -0,0 +1,16 @@
++pkg.name: nimble/screamingchannels
++pkg.description: Screaming Channels Instrumentation.
++pkg.author: "Pierre AYOUB <pierre.ayoub@eurecom.fr>"
++pkg.homepage: ""
++pkg.keywords:
++    - ble
++    - bluetooth
++
++pkg.req_apis:
++    - console
++
++pkg.deps:
++    - "@apache-mynewt-core/sys/console/full"
++    - "@apache-mynewt-core/crypto/tinycrypt"
++    - nimble
++    - nimble/controller
+diff --git a/nimble/screamingchannels/src/dump.c b/nimble/screamingchannels/src/dump.c
+new file mode 100644
+index 00000000..4981f211
+--- /dev/null
++++ b/nimble/screamingchannels/src/dump.c
+@@ -0,0 +1,129 @@
++#include <inttypes.h>
++#include "screamingchannels/dump.h"
++#include "console/console.h"
++
++// Reference in ble_ll_conn.h
++char *ENC_STATES[10] = {
++    "CONN_ENC_S_UNENCRYPTED",        "CONN_ENC_S_ENCRYPTED",
++    "CONN_ENC_S_ENC_RSP_TO_BE_SENT", "CONN_ENC_S_ENC_RSP_WAIT",
++    "CONN_ENC_S_PAUSE_ENC_RSP_WAIT", "CONN_ENC_S_PAUSED",
++    "CONN_ENC_S_START_ENC_REQ_WAIT", "CONN_ENC_S_START_ENC_RSP_WAIT",
++    "CONN_ENC_S_LTK_REQ_WAIT",       "CONN_ENC_S_LTK_NEG_REPL"};
++
++// Use with care as it introduces too much timing to complete a pairing.
++void dump_tc_aes_key_sched_struct(struct tc_aes_key_sched_struct *g_ctx)
++{
++    // See aes.h::64 for structure definition.
++#if MYNEWT_VAL(SC_LOG_DUMP_ENABLE)
++#if MYNEWT_VAL(SC_LOG_TRACE_ENABLE)
++    console_printf("[dump.c] dump_tc_aes_key_sched_struct(g_ctx=%p)\n", g_ctx);
++#endif
++    console_printf("[v] g_ctx->words=");
++    for (int i = 0; i < Nb*(Nr+1); i++) {
++        console_printf("0x%08x", g_ctx->words[i]);
++    }
++    console_printf("\n");
++#endif
++}
++
++void dump_ble_encryption_block(struct ble_encryption_block *ecb)
++{
++    // See ble.h::41 for structure definition.
++#if MYNEWT_VAL(SC_LOG_DUMP_ENABLE)
++#if MYNEWT_VAL(SC_LOG_TRACE_ENABLE)
++    console_printf("[dump.c] dump_ble_encryption_block(ecb=%p)\n", ecb);
++#endif
++    console_printf("[v] ecb->key=0x");
++    for (int i = 0; i < BLE_ENC_BLOCK_SIZE; i++) {
++        console_printf("%02x", ecb->key[i]);
++    }
++    console_printf("\n");
++    console_printf("[v] ecb->plain_text=0x");
++    for (int i = 0; i < BLE_ENC_BLOCK_SIZE; i++) {
++        console_printf("%02x", ecb->plain_text[i]);
++    }
++    console_printf("\n");
++    console_printf("[v] ecb->cipher_text=0x");
++    for (int i = 0; i < BLE_ENC_BLOCK_SIZE; i++) {
++        console_printf("%02x", ecb->cipher_text[i]);
++    }
++    console_printf("\n");
++#endif
++}
++
++void dump_ble_ll_conn_sm(struct ble_ll_conn_sm *connsm)
++{
++#if MYNEWT_VAL(SC_LOG_DUMP_ENABLE)
++#if MYNEWT_VAL(SC_LOG_TRACE_ENABLE)
++    console_printf("[dump.c] dump_ble_ll_conn_sm(connsm=%p)\n", connsm);
++#endif
++    // Reference in ble_ll_conn.h
++    console_printf("[v] conn_handle=%"     PRIu16 "\n", connsm->conn_handle);
++    console_printf("[v] conn_state=%"      PRIu8  "\n", connsm->conn_state);
++    console_printf("[v] conn_role=%"       PRIu8  "\n", connsm->conn_role);
++    console_printf("[v] channel_id=%"      PRIu16 "\n", connsm->channel_id);
++    console_printf("[v] data_chan_index=%" PRIu8  "\n", connsm->data_chan_index);
++    console_printf("[v] anchor_point=%"    PRIu32 "\n", connsm->anchor_point);
++    console_printf("[v] peer_addr=");
++    dump_ble_addr(connsm->peer_addr);
++    console_printf("\n");
++    console_printf("[v] chanmap=");
++    dump_ble_chanmap(connsm->chanmap);
++    console_printf("\n");
++    char * enc_state = get_ble_ll_conn_enc_state(connsm->enc_data.enc_state);
++    console_printf("[v] enc_data.enc_state=%s\n", enc_state);
++#endif
++}
++
++void dump_ble_ll_conn_enc_data(struct ble_ll_conn_enc_data *enc_data)
++{
++#if MYNEWT_VAL(SC_LOG_DUMP_ENABLE)
++#if MYNEWT_VAL(SC_LOG_TRACE_ENABLE)
++    console_printf("[dump.c] dump_ble_ll_conn_enc_data(enc_data=%p)\n", enc_data);
++#endif
++    int cnt;
++    console_printf("[v] LTK:enc_data->enc_block.key=0x");
++    for (cnt = 0; cnt < 16; ++cnt) {
++        console_printf("%02x", enc_data->enc_block.key[cnt]);
++    }
++    console_printf("\n");
++    console_printf("[v] SKD:enc_data->enc_block.plain_text=0x");
++    for (cnt = 0; cnt < 16; ++cnt) {
++        console_printf("%02x", enc_data->enc_block.plain_text[cnt]);
++    }
++    console_printf("\n");
++    console_printf("[v] SK:enc_data->enc_block.cipher_text=0x");
++    for (cnt = 0; cnt < 16; ++cnt) {
++        console_printf("%02x", enc_data->enc_block.cipher_text[cnt]);
++    }
++    console_printf("\n");
++    console_printf("[v] IV:enc_data->iv=0x");
++    for (cnt = 0; cnt < 8; ++ cnt) {
++        console_printf("%02x", enc_data->iv[cnt]);
++    }
++    console_printf("\n");
++#endif
++}
++
++void dump_ble_addr(uint8_t * addr)
++{
++#if MYNEWT_VAL(SC_LOG_DUMP_ENABLE)
++    // Reference in ble.h
++    console_printf("%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx", addr[5], addr[4], addr[3], addr[2], addr[1], addr[0]);
++#endif
++}
++
++void dump_ble_chanmap(uint8_t * chanmap)
++{
++#if MYNEWT_VAL(SC_LOG_DUMP_ENABLE)
++    // Reference in ble_ll_conn.h::243 and ble_ll.h::94.
++    console_printf("0x%02hhx%02hhx%02hhx%02hhx%02hhx", chanmap[4], chanmap[3], chanmap[2], chanmap[1], chanmap[0]);
++#endif
++}
++
++char * get_ble_ll_conn_enc_state(uint8_t enc_state)
++{
++#if MYNEWT_VAL(SC_LOG_DUMP_ENABLE)
++    return ENC_STATES[enc_state - 1];
++#endif
++}
+diff --git a/nimble/screamingchannels/src/misc.c b/nimble/screamingchannels/src/misc.c
+new file mode 100644
+index 00000000..2111be0c
+--- /dev/null
++++ b/nimble/screamingchannels/src/misc.c
+@@ -0,0 +1,25 @@
++#include <inttypes.h>
++#include "screamingchannels/misc.h"
++#include "console/console.h"
++
++#define SC_CHANMAP 0x300
++
++int IS_SC_TRAIN  = 0;
++int IS_SC_ATTACK = 0;
++
++void set_is_sc_train(uint8_t * chanmap)
++{
++    IS_SC_TRAIN = is_sc_chanmap(chanmap);
++}
++
++void set_is_sc_attack(uint8_t * chanmap)
++{
++    IS_SC_ATTACK = is_sc_chanmap(chanmap);
++}
++
++// Usage: is_sc_chanmap(&connsm->chanmap))
++// Return 1 if it is Screaming Channels channel map, 0 otherwise.
++int is_sc_chanmap(uint8_t * chanmap)
++{
++    return *(uint32_t *) chanmap == SC_CHANMAP;
++}
+diff --git a/nimble/screamingchannels/src/radio_test.c b/nimble/screamingchannels/src/radio_test.c
+new file mode 100644
+index 00000000..a6692f29
+--- /dev/null
++++ b/nimble/screamingchannels/src/radio_test.c
+@@ -0,0 +1,282 @@
++/**
++ * Copyright (c) 2009 - 2017, Nordic Semiconductor ASA
++ *
++ * All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without modification,
++ * are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright notice, this
++ *    list of conditions and the following disclaimer.
++ *
++ * 2. Redistributions in binary form, except as embedded into a Nordic
++ *    Semiconductor ASA integrated circuit in a product or a software update for
++ *    such product, must reproduce the above copyright notice, this list of
++ *    conditions and the following disclaimer in the documentation and/or other
++ *    materials provided with the distribution.
++ *
++ * 3. Neither the name of Nordic Semiconductor ASA nor the names of its
++ *    contributors may be used to endorse or promote products derived from this
++ *    software without specific prior written permission.
++ *
++ * 4. This software, with or without modification, must only be used with a
++ *    Nordic Semiconductor ASA integrated circuit.
++ *
++ * 5. Any software provided in binary form under this license must not be reverse
++ *    engineered, decompiled, modified and/or disassembled.
++ *
++ * THIS SOFTWARE IS PROVIDED BY NORDIC SEMICONDUCTOR ASA "AS IS" AND ANY EXPRESS
++ * OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
++ * OF MERCHANTABILITY, NONINFRINGEMENT, AND FITNESS FOR A PARTICULAR PURPOSE ARE
++ * DISCLAIMED. IN NO EVENT SHALL NORDIC SEMICONDUCTOR ASA OR CONTRIBUTORS BE
++ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
++ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
++ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
++ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
++ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++ *
++ */
++/** @file
++* @addtogroup nrf_radio_test_example_main
++* @{
++*/
++
++#include "screamingchannels/radio_test.h"
++#include <stdbool.h>
++#include "nrf.h"
++#include "console/console.h"
++
++void radio_test_hello_world()
++{
++    console_printf("radio_test_hello_world!\n");
++}
++
++static uint8_t packet[256];
++
++static uint8_t mode_;
++static uint8_t txpower_;
++static uint8_t channel_start_;
++static uint8_t channel_end_;
++static uint8_t channel_;
++static bool    sweep_tx_;
++
++/**
++ * @brief Function for initializing Timer 0 in 24 bit timer mode with 1 us resolution.
++*/
++static void timer0_init(uint8_t delayms)
++{
++    NRF_TIMER0->TASKS_STOP = 1;
++
++    // Create an Event-Task shortcut to clear Timer 1 on COMPARE[0] event.
++    NRF_TIMER0->SHORTS     = (TIMER_SHORTS_COMPARE0_CLEAR_Enabled << TIMER_SHORTS_COMPARE0_CLEAR_Pos);
++    NRF_TIMER0->MODE       = TIMER_MODE_MODE_Timer;
++    NRF_TIMER0->BITMODE    = (TIMER_BITMODE_BITMODE_24Bit << TIMER_BITMODE_BITMODE_Pos);
++    NRF_TIMER0->PRESCALER  = 4;  // 1us resolution
++    NRF_TIMER0->INTENSET   = (TIMER_INTENSET_COMPARE0_Set << TIMER_INTENSET_COMPARE0_Pos);
++
++    // Sample update needs to happen as soon as possible. The earliest possible moment is MAX_SAMPLE_LEVELS
++    // ticks before changing the output duty cycle.
++    NRF_TIMER0->CC[0]       = (uint32_t)delayms * 1000;
++    NRF_TIMER0->TASKS_START = 1;
++}
++
++
++/**
++ * @brief Function for generating an 8 bit random number using the internal random generator.
++*/
++static uint32_t rnd8(void)
++{
++    NRF_RNG->EVENTS_VALRDY = 0;
++    while (NRF_RNG->EVENTS_VALRDY == 0)
++    {
++        // Do nothing.
++    }
++    return NRF_RNG->VALUE;
++}
++
++
++/**
++ * @brief Function for generating a 32 bit random number using the internal random generator.
++*/
++static uint32_t rnd32(void)
++{
++    uint8_t  i;
++    uint32_t val = 0;
++
++    for (i=0; i<4; i++)
++    {
++        val <<= 8;
++        val  |= rnd8();
++    }
++    return val;
++}
++
++
++/**
++ * @brief Function for configuring the radio to use a random address and a 254 byte random payload.
++ * The S0 and S1 fields are not used.
++*/
++static void generate_modulated_rf_packet(void)
++{
++    uint8_t i;
++
++    NRF_RADIO->PREFIX0 = rnd8();
++    NRF_RADIO->BASE0   = rnd32();
++
++    // Packet configuration:
++    // S1 size = 0 bits, S0 size = 0 bytes, payload length size = 8 bits
++    NRF_RADIO->PCNF0  = (0UL << RADIO_PCNF0_S1LEN_Pos) |
++                        (0UL << RADIO_PCNF0_S0LEN_Pos) |
++                        (8UL << RADIO_PCNF0_LFLEN_Pos);
++    // Packet configuration:
++    // Bit 25: 1 Whitening enabled
++    // Bit 24: 1 Big endian,
++    // 4 byte base address length (5 byte full address length),
++    // 0 byte static length, max 255 byte payload .
++    NRF_RADIO->PCNF1  = (RADIO_PCNF1_WHITEEN_Enabled << RADIO_PCNF1_WHITEEN_Pos) |
++                        (RADIO_PCNF1_ENDIAN_Big << RADIO_PCNF1_ENDIAN_Pos) |
++                        (4UL << RADIO_PCNF1_BALEN_Pos) |
++                        (0UL << RADIO_PCNF1_STATLEN_Pos) |
++                        (255UL << RADIO_PCNF1_MAXLEN_Pos);
++    NRF_RADIO->CRCCNF = (RADIO_CRCCNF_LEN_Disabled << RADIO_CRCCNF_LEN_Pos);
++    packet[0]         = 254;    // 254 byte payload.
++
++    // Fill payload with random data.
++    for (i = 0; i < 254; i++)
++    {
++        packet[i + 1] = rnd8();
++    }
++    NRF_RADIO->PACKETPTR = (uint32_t)packet;
++}
++
++
++void radio_disable(void)
++{
++#if MYNEWT_VAL(SC_LOG_TRACE_ENABLE)
++    console_printf("[radio_test.c] radio_disable()\n");
++#endif
++    NRF_RADIO->SHORTS          = 0;
++    NRF_RADIO->EVENTS_DISABLED = 0;
++    NRF_RADIO->TASKS_DISABLE   = 1;
++    while (NRF_RADIO->EVENTS_DISABLED == 0)
++    {
++        // Do nothing.
++    }
++    NRF_RADIO->EVENTS_DISABLED = 0;
++}
++
++
++/**
++ * @brief Function for stopping Timer 0.
++*/
++void radio_sweep_end(void)
++{
++    NRF_TIMER0->TASKS_STOP = 1;
++    radio_disable();
++}
++
++
++/**
++ * @brief Function for turning on the TX carrier test mode.
++ * @example radio_tx_carrier(4, RADIO_MODE_MODE_Ble_1Mbit, 20);
++*/
++void radio_tx_carrier(uint8_t txpower, uint8_t mode, uint8_t channel)
++{
++    radio_disable();
++#if MYNEWT_VAL(SC_LOG_TRACE_ENABLE)
++    console_printf("[radio_test.c] radio_tx_carrier(txpower=%d,mode=%d,channel=%d)\n", txpower, mode, channel);
++#endif
++    NRF_RADIO->SHORTS     = RADIO_SHORTS_READY_START_Msk;
++    NRF_RADIO->TXPOWER    = (txpower << RADIO_TXPOWER_TXPOWER_Pos);
++    NRF_RADIO->MODE       = (mode << RADIO_MODE_MODE_Pos);
++    NRF_RADIO->FREQUENCY  = channel;
++    NRF_RADIO->TASKS_TXEN = 1;
++}
++
++
++/**
++ * @brief Function for starting modulated TX carrier by repeatedly sending a packet with random address and
++ * random payload.
++*/
++void radio_modulated_tx_carrier(uint8_t txpower, uint8_t mode, uint8_t channel)
++{
++    radio_disable();
++#if MYNEWT_VAL(SC_LOG_TRACE_ENABLE)
++    console_printf("[radio_test.c] radio_modulated_tx_carrier(txpower=%d,mode=%d,channel=%d)\n", txpower, mode, channel);
++#endif
++    generate_modulated_rf_packet();
++    NRF_RADIO->SHORTS     = RADIO_SHORTS_END_DISABLE_Msk | RADIO_SHORTS_READY_START_Msk | \
++                            RADIO_SHORTS_DISABLED_TXEN_Msk;
++    NRF_RADIO->TXPOWER    = (txpower << RADIO_TXPOWER_TXPOWER_Pos);
++    NRF_RADIO->MODE       = (mode << RADIO_MODE_MODE_Pos);
++    NRF_RADIO->FREQUENCY  = channel;
++    NRF_RADIO->TASKS_TXEN = 1;
++}
++
++
++/**
++ * @brief Function for turning on RX carrier.
++*/
++void radio_rx_carrier(uint8_t mode, uint8_t channel)
++{
++    radio_disable();
++    NRF_RADIO->SHORTS     = RADIO_SHORTS_READY_START_Msk;
++    NRF_RADIO->FREQUENCY  = channel;
++    NRF_RADIO->TASKS_RXEN = 1;
++}
++
++
++/**
++ * @brief Function for turning on TX carrier sweep. This test uses Timer 0 to restart the TX carrier at different channels.
++*/
++void radio_tx_sweep_start(uint8_t txpower, uint8_t mode, uint8_t channel_start, uint8_t channel_end, uint8_t delayms)
++{
++    txpower_       = txpower;
++    mode_          = mode;
++    channel_start_ = channel_start;
++    channel_       = channel_start;
++    channel_end_   = channel_end;
++    sweep_tx_      = true;
++    timer0_init(delayms);
++}
++
++
++/**
++ * @brief Function for turning on RX carrier sweep. This test uses Timer 0 to restart the RX carrier at different channels.
++*/
++void radio_rx_sweep_start(uint8_t mode, uint8_t channel_start, uint8_t channel_end, uint8_t delayms)
++{
++    mode_          = mode;
++    channel_start_ = channel_start;
++    channel_       = channel_start;
++    channel_end_   = channel_end;
++    sweep_tx_      = false;
++    timer0_init(delayms);
++}
++
++
++/**
++ * @brief Function for handling the Timer 0 interrupt used for TX/RX sweep. The carrier is started with the new channel,
++ * and the channel is incremented for the next interrupt.
++*/
++void TIMER0_IRQHandler(void)
++{
++    if (sweep_tx_)
++    {
++        radio_tx_carrier(txpower_, mode_, channel_);
++    }
++    else
++    {
++        radio_rx_carrier(mode_, channel_);
++    }
++    channel_++;
++    if (channel_ > channel_end_)
++    {
++        channel_ = channel_start_;
++    }
++    NRF_TIMER0->EVENTS_COMPARE[0] = 0;
++}
++/**
++ * @}
++ */
+diff --git a/nimble/screamingchannels/syscfg.yml b/nimble/screamingchannels/syscfg.yml
+new file mode 100644
+index 00000000..80c4a913
+--- /dev/null
++++ b/nimble/screamingchannels/syscfg.yml
+@@ -0,0 +1,15 @@
++syscfg.defs:
++    DUMMY_VARIABLE:
++        description: >
++            Dummy description.
++        value: 0
++
++    SC_LOG_TRACE_ENABLE:
++        description: >
++            Screaming Channels function tracing logging (0 = disable ; 1 = enable).
++        value: 0
++
++    SC_LOG_DUMP_ENABLE:
++        description: >
++            Screaming Channels structure dumping logging (0 = disable ; 1 = enable).
++        value: 0
+diff --git a/nimble/transport/socket/src/ble_hci_socket.c b/nimble/transport/socket/src/ble_hci_socket.c
+index 5dd1d17d..8f74ceef 100644
+--- a/nimble/transport/socket/src/ble_hci_socket.c
++++ b/nimble/transport/socket/src/ble_hci_socket.c
+@@ -850,4 +850,4 @@ ble_transport_to_ll_cmd_impl(void *buf)
+     return ble_hci_trans_hs_cmd_tx(buf);
+ }
+ 
+-/* TODO: add ll-to-hs side if needed */
++/* TODO : add ll-to-hs side if needed */
+diff --git a/porting/npl/linux/src/os_callout.c b/porting/npl/linux/src/os_callout.c
+index d3091fa9..69f82189 100644
+--- a/porting/npl/linux/src/os_callout.c
++++ b/porting/npl/linux/src/os_callout.c
+@@ -64,8 +64,8 @@ void ble_npl_callout_init(struct ble_npl_callout *c,
+ 
+ bool ble_npl_callout_is_active(struct ble_npl_callout *c)
+ {
+-    // TODO: seek native posix method to determine whether timer_t is active.
+-    // TODO: fix bug where one-shot timer is still active after fired.
++    // TODO : seek native posix method to determine whether timer_t is active.
++    // TODO : fix bug where one-shot timer is still active after fired.
+     return c->c_active;
+ }
+ 
+diff --git a/porting/npl/nuttx/src/os_callout.c b/porting/npl/nuttx/src/os_callout.c
+index e4580da9..c7ee03bc 100644
+--- a/porting/npl/nuttx/src/os_callout.c
++++ b/porting/npl/nuttx/src/os_callout.c
+@@ -110,8 +110,8 @@ ble_npl_callout_init(struct ble_npl_callout *c,
+ bool
+ ble_npl_callout_is_active(struct ble_npl_callout *c)
+ {
+-    /* TODO: seek native posix method to determine whether timer_t is active.
+-       TODO: fix bug where one-shot timer is still active after fired. */
++    /* TODO : seek native posix method to determine whether timer_t is active.
++       TODO : fix bug where one-shot timer is still active after fired. */
+ 
+     return c->c_active;
+ }
