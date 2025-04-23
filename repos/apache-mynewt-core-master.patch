@@ -1,26 +1,3 @@
-diff --git a/README.md b/README.md
-index 88370cef3..9ddf7142e 100644
---- a/README.md
-+++ b/README.md
-@@ -19,6 +19,18 @@
- #
- -->
- 
-+# Screaming Channels on Bluetooth Low Energy -- Nimble (Core)
-+
-+## About
-+
-+Companion repository of the "Screaming Channels on Bluetooth Low Energy"
-+project.
-+
-+See the [screaming_channels_ble](https://github.com/pierreay/screaming_channels_ble)
-+repository for a complete overview of the project.
-+
-+# Original README
-+
- <img src="http://mynewt.apache.org/img/logo.svg" width="250" alt="Apache Mynewt">
- 
- ## Overview
 diff --git a/compiler/arm-none-eabi-m0/compiler.yml b/compiler/arm-none-eabi-m0/compiler.yml
 index 802e472a3..5a72dbb6e 100644
 --- a/compiler/arm-none-eabi-m0/compiler.yml

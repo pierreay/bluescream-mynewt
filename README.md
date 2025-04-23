@@ -25,7 +25,7 @@
 Companion repository of the "Screaming Channels on Bluetooth Low Energy"
 project.
 
-See the [screaming_channels_ble](https://github.com/pierreay/screaming_channels_ble)
+See the [bluescream](https://github.com/pierreay/bluescream)
 repository for a complete overview of the project.
 
 ## Submodules
