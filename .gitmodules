@@ -1,12 +1,15 @@
+# Own submodules
 [submodule "repos/apache-mynewt-core"]
 	path = repos/apache-mynewt-core
-	url = git@github.com:pierreay/apache-mynewt-core.git
+	url = https://github.com/pierreay/apache-mynewt-core.git
+[submodule "repos/apache-mynewt-nimble"]
+	path = repos/apache-mynewt-nimble
+	url = https://github.com/pierreay/apache-mynewt-nimble.git
+
+# Upstream submodules
 [submodule "repos/apache-mynewt-mcumgr"]
 	path = repos/apache-mynewt-mcumgr
 	url = https://github.com/apache/mynewt-mcumgr.git
-[submodule "repos/apache-mynewt-nimble"]
-	path = repos/apache-mynewt-nimble
-	url = git@github.com:pierreay/apache-mynewt-nimble.git
 [submodule "repos/mcuboot"]
 	path = repos/mcuboot
 	url = https://github.com/mcu-tools/mcuboot.git
