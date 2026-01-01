@@ -18,15 +18,13 @@
 # under the License.
 #
 -->
-# Screaming Channels on Bluetooth Low Energy -- NimBLE
+# BlueScream: Screaming Channels on Bluetooth Low Energy -- MyNewt
 
 ## About
 
-Companion repository of the "Screaming Channels on Bluetooth Low Energy"
-project.
+Companion repository of the "BlueScream: Screaming Channels on Bluetooth Low Energy" project.
 
-See the [bluescream](https://github.com/pierreay/bluescream)
-repository for a complete overview of the project.
+See the [bluescream](https://github.com/pierreay/bluescream) repository for a complete overview of the project.
 
 ## Submodules
 
