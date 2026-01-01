@@ -1,0 +1,235 @@
+diff --git a/compiler/arm-none-eabi-m0/compiler.yml b/compiler/arm-none-eabi-m0/compiler.yml
+index 802e472a3..5a72dbb6e 100644
+--- a/compiler/arm-none-eabi-m0/compiler.yml
++++ b/compiler/arm-none-eabi-m0/compiler.yml
+@@ -25,7 +25,7 @@ compiler.path.objdump: arm-none-eabi-objdump
+ compiler.path.objsize: arm-none-eabi-size
+ compiler.path.objcopy: arm-none-eabi-objcopy
+ 
+-compiler.flags.default: [-march=armv6s-m, -mcpu=cortex-m0, -mthumb-interwork, -mthumb, -Wall, -Werror, -fno-exceptions, -fomit-frame-pointer, -ffunction-sections, -fdata-sections, -DCMSIS_VECTAB_VIRTUAL, -DCMSIS_VECTAB_VIRTUAL_HEADER_FILE="mynewt_cm0_vectab.h", -fno-common]
++compiler.flags.default: [-march=armv6s-m, -mcpu=cortex-m0, -mthumb-interwork, -mthumb, -Wall, -fno-exceptions, -fomit-frame-pointer, -ffunction-sections, -fdata-sections, -DCMSIS_VECTAB_VIRTUAL, -DCMSIS_VECTAB_VIRTUAL_HEADER_FILE="mynewt_cm0_vectab.h", -fno-common]
+ compiler.flags.optimized: [compiler.flags.default, -Os, -ggdb]
+ compiler.flags.speed: [compiler.flags.default, -O3, -ggdb]
+ compiler.flags.debug: [compiler.flags.default, -Og, -ggdb]
+diff --git a/compiler/arm-none-eabi-m4/compiler.yml b/compiler/arm-none-eabi-m4/compiler.yml
+index 8f8240812..7663750b3 100644
+--- a/compiler/arm-none-eabi-m4/compiler.yml
++++ b/compiler/arm-none-eabi-m4/compiler.yml
+@@ -25,7 +25,7 @@ compiler.path.objdump: arm-none-eabi-objdump
+ compiler.path.objsize: arm-none-eabi-size
+ compiler.path.objcopy: arm-none-eabi-objcopy
+ 
+-compiler.flags.base: [-mcpu=cortex-m4, -mthumb-interwork, -mthumb, -Wall, -Werror, -fno-exceptions, -ffunction-sections, -fdata-sections, -fno-common]
++compiler.flags.base: [-mcpu=cortex-m4, -mthumb-interwork, -mthumb, -Wall, -fno-exceptions, -ffunction-sections, -fdata-sections, -fno-common]
+ compiler.flags.default: [compiler.flags.base, -O1, -ggdb]
+ compiler.flags.optimized: [compiler.flags.base, -Os, -ggdb]
+ compiler.flags.speed: [compiler.flags.base, -O3, -ggdb]
+diff --git a/crypto/tinycrypt/include/tinycrypt/utils.h b/crypto/tinycrypt/include/tinycrypt/utils.h
+index 6b7b0abf9..f18b2dd23 100644
+--- a/crypto/tinycrypt/include/tinycrypt/utils.h
++++ b/crypto/tinycrypt/include/tinycrypt/utils.h
+@@ -42,6 +42,7 @@
+ #include <stdint.h>
+ #include <stddef.h>
+ #include <string.h>
++#include "console/console.h"
+ 
+ #ifdef __cplusplus
+ extern "C" {
+diff --git a/crypto/tinycrypt/pkg.yml b/crypto/tinycrypt/pkg.yml
+index aa7c84cfc..ef960bd3f 100644
+--- a/crypto/tinycrypt/pkg.yml
++++ b/crypto/tinycrypt/pkg.yml
+@@ -28,6 +28,10 @@ pkg.cflags:
+ 
+ pkg.deps.TINYCRYPT_UECC_RNG_USE_TRNG:
+     - "@apache-mynewt-core/hw/drivers/trng"
++    - "@apache-mynewt-core/sys/console/full"
+ 
+ pkg.init.TINYCRYPT_UECC_RNG_USE_TRNG:
+     mynewt_tinycrypt_pkg_init: 'MYNEWT_VAL(TINYCRYPT_SYSINIT_STAGE)'
++
++pkg.req_apis:
++    - console
+diff --git a/crypto/tinycrypt/src/aes_decrypt.c b/crypto/tinycrypt/src/aes_decrypt.c
+index 993a6180c..e719c2eea 100644
+--- a/crypto/tinycrypt/src/aes_decrypt.c
++++ b/crypto/tinycrypt/src/aes_decrypt.c
+@@ -61,6 +61,9 @@ static const uint8_t inv_sbox[256] = {
+ 
+ int tc_aes128_set_decrypt_key(TCAesKeySched_t s, const uint8_t *k)
+ {
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[mynewt/tinycrypt] tc_aes128_set_decrypt_key()\n");
++#endif
+ 	return tc_aes128_set_encrypt_key(s, k);
+ }
+ 
+@@ -128,6 +131,9 @@ static inline void inv_shift_rows(uint8_t *s)
+ 
+ int tc_aes_decrypt(uint8_t *out, const uint8_t *in, const TCAesKeySched_t s)
+ {
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[mynewt/tinycrypt] tc_aes_decrypt()\n");
++#endif
+ 	uint8_t state[Nk*Nb];
+ 	unsigned int i;
+ 
+diff --git a/crypto/tinycrypt/src/aes_encrypt.c b/crypto/tinycrypt/src/aes_encrypt.c
+index 8991aee52..268da0bce 100644
+--- a/crypto/tinycrypt/src/aes_encrypt.c
++++ b/crypto/tinycrypt/src/aes_encrypt.c
+@@ -30,6 +30,7 @@
+  *  POSSIBILITY OF SUCH DAMAGE.
+  */
+ 
++#include <stdint.h>
+ #include <tinycrypt/aes.h>
+ #include <tinycrypt/utils.h>
+ #include <tinycrypt/constants.h>
+@@ -69,6 +70,9 @@ static inline unsigned int rotword(unsigned int a)
+ 
+ int tc_aes128_set_encrypt_key(TCAesKeySched_t s, const uint8_t *k)
+ {
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[mynewt/tinycrypt] tc_aes128_set_encrypt_key()\n");
++#endif
+ 	const unsigned int rconst[11] = {
+ 		0x00000000, 0x01000000, 0x02000000, 0x04000000, 0x08000000, 0x10000000,
+ 		0x20000000, 0x40000000, 0x80000000, 0x1b000000, 0x36000000
+@@ -157,6 +161,9 @@ static inline void shift_rows(uint8_t *s)
+ 
+ int tc_aes_encrypt(uint8_t *out, const uint8_t *in, const TCAesKeySched_t s)
+ {
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[mynewt/tinycrypt] tc_aes_encrypt()\n");
++#endif
+ 	uint8_t state[Nk*Nb];
+ 	unsigned int i;
+ 
+@@ -169,6 +176,16 @@ int tc_aes_encrypt(uint8_t *out, const uint8_t *in, const TCAesKeySched_t s)
+ 	}
+ 
+ 	(void)_copy(state, sizeof(state), in, sizeof(state));
++/* #if MYNEWT_VAL(CONSOLE_LOG) */
++/*     console_printf("state=0x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n", */
++/*                    state[0], state[1], state[2], state[3], state[4], state[5], state[6], state[7], state[8], state[9], state[10], state[11], state[12], state[13], state[14], state[15]); */
++/*     unsigned int *k = s->words; */
++/*     console_printf("key=0x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x\n", */
++/*                    (uint8_t)(k[0] >> 24), (uint8_t)(k[0] >> 16), (uint8_t)(k[0] >> 8), (uint8_t)(k[0]), */
++/*                    (uint8_t)(k[1] >> 24), (uint8_t)(k[1] >> 16), (uint8_t)(k[1] >> 8), (uint8_t)(k[1]), */
++/*                    (uint8_t)(k[2] >> 24), (uint8_t)(k[2] >> 16), (uint8_t)(k[2] >> 8), (uint8_t)(k[2]), */
++/*                    (uint8_t)(k[3] >> 24), (uint8_t)(k[3] >> 16), (uint8_t)(k[3] >> 8), (uint8_t)(k[3])); */
++/* #endif */
+ 	add_round_key(state, s->words);
+ 
+ 	for (i = 0; i < (Nr - 1); ++i) {
+diff --git a/crypto/tinycrypt/src/cbc_mode.c b/crypto/tinycrypt/src/cbc_mode.c
+index ae20af1a7..83aac53ca 100644
+--- a/crypto/tinycrypt/src/cbc_mode.c
++++ b/crypto/tinycrypt/src/cbc_mode.c
+@@ -38,7 +38,9 @@ int tc_cbc_mode_encrypt(uint8_t *out, unsigned int outlen, const uint8_t *in,
+ 			    unsigned int inlen, const uint8_t *iv,
+ 			    const TCAesKeySched_t sched)
+ {
+-
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[mynewt/tinycrypt] tc_cbc_mode_encrypt()\n");
++#endif
+ 	uint8_t buffer[TC_AES_BLOCK_SIZE];
+ 	unsigned int n, m;
+ 
+@@ -78,7 +80,9 @@ int tc_cbc_mode_decrypt(uint8_t *out, unsigned int outlen, const uint8_t *in,
+ 			    unsigned int inlen, const uint8_t *iv,
+ 			    const TCAesKeySched_t sched)
+ {
+-
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[mynewt/tinycrypt] tc_cbc_mode_decrypt()\n");
++#endif
+ 	uint8_t buffer[TC_AES_BLOCK_SIZE];
+ 	const uint8_t *p;
+ 	unsigned int n, m;
+diff --git a/crypto/tinycrypt/src/ccm_mode.c b/crypto/tinycrypt/src/ccm_mode.c
+index 929adac63..677958341 100644
+--- a/crypto/tinycrypt/src/ccm_mode.c
++++ b/crypto/tinycrypt/src/ccm_mode.c
+@@ -64,7 +64,9 @@ int tc_ccm_config(TCCcmMode_t c, TCAesKeySched_t sched, uint8_t *nonce,
+ static void ccm_cbc_mac(uint8_t *T, const uint8_t *data, unsigned int dlen,
+ 			unsigned int flag, TCAesKeySched_t sched)
+ {
+-
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[mynewt/tinycrypt] ccm_cbc_mac()\n");
++#endif
+ 	unsigned int i;
+ 
+ 	if (flag > 0) {
+@@ -93,7 +95,9 @@ static void ccm_cbc_mac(uint8_t *T, const uint8_t *data, unsigned int dlen,
+ static int ccm_ctr_mode(uint8_t *out, unsigned int outlen, const uint8_t *in,
+ 			unsigned int inlen, uint8_t *ctr, const TCAesKeySched_t sched)
+ {
+-
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[mynewt/tinycrypt] ccm_ctr_mode()\n");
++#endif
+ 	uint8_t buffer[TC_AES_BLOCK_SIZE];
+ 	uint8_t nonce[TC_AES_BLOCK_SIZE];
+ 	uint16_t block_num;
+diff --git a/crypto/tinycrypt/src/ctr_mode.c b/crypto/tinycrypt/src/ctr_mode.c
+index 1dfb92dfe..1e5945761 100644
+--- a/crypto/tinycrypt/src/ctr_mode.c
++++ b/crypto/tinycrypt/src/ctr_mode.c
+@@ -37,7 +37,9 @@
+ int tc_ctr_mode(uint8_t *out, unsigned int outlen, const uint8_t *in,
+ 		unsigned int inlen, uint8_t *ctr, const TCAesKeySched_t sched)
+ {
+-
++#if MYNEWT_VAL(CONSOLE_LOG)
++    console_printf("[mynewt/tinycrypt] tc_ctr_mode()\n");
++#endif
+ 	uint8_t buffer[TC_AES_BLOCK_SIZE];
+ 	uint8_t nonce[TC_AES_BLOCK_SIZE];
+ 	unsigned int block_num;
+diff --git a/crypto/tinycrypt/syscfg.yml b/crypto/tinycrypt/syscfg.yml
+index eb8f9831e..adec03c37 100644
+--- a/crypto/tinycrypt/syscfg.yml
++++ b/crypto/tinycrypt/syscfg.yml
+@@ -17,6 +17,17 @@
+ #
+ 
+ syscfg.defs:
++    TINYCRYPT_INSTR_LOOP_ENABLE:
++        description: >
++            Enable TinyCrypt instrumentation using loops.
++        value: 0
++
++    TINYCRYPT_INSTR_LOOP_NB:
++        description: >
++            Number of loop for a single encryption if
++            TINYCRYPT_INSTR_LOOP_ENABLE is set to 1.
++        value: 1
++
+     TINYCRYPT_UECC_RNG_USE_TRNG:
+         description: >
+             Configure uECC RNG to use TRNG driver by default.
+diff --git a/hw/mcu/nordic/src/ext/nrfx/hal/nrf_ecb.h b/hw/mcu/nordic/src/ext/nrfx/hal/nrf_ecb.h
+index 75d007dcd..731ded2de 100644
+--- a/hw/mcu/nordic/src/ext/nrfx/hal/nrf_ecb.h
++++ b/hw/mcu/nordic/src/ext/nrfx/hal/nrf_ecb.h
+@@ -35,6 +35,7 @@
+ #define NRF_ECB_H__
+ 
+ #include <nrfx.h>
++#include "console/console.h"
+ 
+ #ifdef __cplusplus
+ extern "C" {
+@@ -214,6 +215,7 @@ NRF_STATIC_INLINE void nrf_ecb_publish_clear(NRF_ECB_Type *  p_reg,
+ 
+ NRF_STATIC_INLINE void nrf_ecb_task_trigger(NRF_ECB_Type * p_reg, nrf_ecb_task_t task)
+ {
++    console_printf("[mynewt-core/hw/mcu/nordic/src/ext/nrfx/hal/nrf_ecb.h] nrf_ecb_task_trigger(task=%lu)\n", (uint32_t)task);
+     *((volatile uint32_t *)((uint8_t *)p_reg + (uint32_t)task)) = 0x1UL;
+ }
+ 
