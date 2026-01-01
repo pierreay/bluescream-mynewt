@@ -31,8 +31,8 @@ See the [bluescream](https://github.com/pierreay/bluescream) repository for a co
 This firmware is composed of 4 submodules.
 
 Two of them are my own submodules:
-- [apache-mynewt-core](https://github.com/pierreay/screaming_channels_nimble_core) : The core of the Mynewt RTOS.
-- [apache-mynewt-nimble](https://github.com/pierreay/screaming_channels_nimble_nimble) : The BLE stack implementation.
+- [apache-mynewt-core](https://github.com/pierreay/bluescream-mynewt-core) : The core of the Mynewt RTOS.
+- [apache-mynewt-nimble](https://github.com/pierreay/bluescream-mynewt-nimble) : The BLE stack implementation.
 
 Two of them are legacy Apache submodules:
 - `apache-mynewt-mcumgr`
