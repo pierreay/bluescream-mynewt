@@ -4,7 +4,7 @@
 	url = https://github.com/pierreay/bluescream-nimble-core.git
 [submodule "repos/apache-mynewt-nimble"]
 	path = repos/apache-mynewt-nimble
-	url = https://github.com/pierreay/apache-mynewt-nimble.git
+	url = https://github.com/pierreay/bluescream-mynewt-nimble.git
 
 # Upstream submodules
 [submodule "repos/apache-mynewt-mcumgr"]
