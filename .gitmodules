@@ -1,7 +1,7 @@
 # Own submodules
 [submodule "repos/apache-mynewt-core"]
 	path = repos/apache-mynewt-core
-	url = https://github.com/pierreay/bluescream-nimble-core.git
+	url = https://github.com/pierreay/bluescream-mynewt-core.git
 [submodule "repos/apache-mynewt-nimble"]
 	path = repos/apache-mynewt-nimble
 	url = https://github.com/pierreay/bluescream-mynewt-nimble.git
